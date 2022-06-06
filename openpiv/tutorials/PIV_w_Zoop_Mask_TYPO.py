@@ -4,6 +4,7 @@
 
 from openpiv import tools, pyprocess, scaling, validation, filters
 import numpy as np
+
 import os
 
 # everything from PIA
@@ -49,14 +50,18 @@ import pandas as pd
 
 # ==================================================================
 
-# ROI parameters
+# Scaling factor to control binning size
 minThreshold = 20
 maxThreshold = 255
 min_area = 30
 max_area = 5000
 
 # PIV parameters
-fact = 3
+fact = 4
+# Original Parameters
+#wndw = 32
+#ovrlp = 16
+#srch = 64
 wndw = 32
 ovrlp = 16
 srch = 64
@@ -100,7 +105,7 @@ class ROI():
             if ROIfile is not None:
                 self.ROIfile=ROIfile
             if self.ROIfile is not None:
-                try:
+                trsy:
                     self.ROIimage=Image.open(self.ROIfile)
                 except:
                     self.ROIimage=None
@@ -208,30 +213,20 @@ class PIV():
             
             u, v, sig2noise = pyprocess.extended_search_area_piv( frame_a, frame_b, \
                 window_size=(wndw*fact), overlap=(ovrlp*fact), dt=0.02, search_area_size=(srch*fact), sig2noise_method='peak2peak' )
-            print('ROUND 1:')
-            print(u, v, sig2noise)
+            print("before:")
+            print(u,v,sig2noise)
             
             x, y = pyprocess.get_coordinates( image_size=frame_a.shape, search_area_size=(srch*fact), overlap=(ovrlp*fact) )
-            #x, y = pyprocess.get_rect_coordinates( frame_a=frame_a.shape, window_size=(wndw*fact), overlap=(ovrlp*fact) )
-            
-            u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.3 )   # masks anything with a s2n less than 1.3
-            print('ROUND 2:')
-            print(u,v,mask)
-            
-            u, v, mask = validation.global_val( u, v, (-1000, 2000), (-1000, 1000) )    # masks anything outside of these global outliers -- aka any unrealistic flowfield
-            print('ROUND 3:')
-            print(u,v,mask)
-            
-            u, v = filters.replace_outliers( u, v, method='localmean', max_iter=10, kernel_size=2)
-            print('ROUND 4:')
+            #print(x,y)
+            u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.3 )
+            print("after:")
             print(u,v)
+            u, v, mask = validation.global_val( u, v, (-1000, 2000), (-1000, 1000) )
+            u, v = filters.replace_outliers( u, v, method='localmean', max_iter=10, kernel_size=2)
+            x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 96.52 )
             
-            #x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 96.52 )  # just divides everything by the scaling factor -- probably don't need
-            #print('ROUND 5')
-            #print(u,v)
-            
-            tools.save(x, y, u, v, mask, str(self.vid_dir)+'/test_data_'+str(m)+'.vec' )
-            #tools.display_vector_field(str(self.vid_dir)+'/test_data_'+str(m)+'.vec', scale=75, width=0.0035)
+            tools.save(x, y, u, v, mask, str(vid_dir)+'/test_data_'+str(m)+'.vec' )
+            tools.display_vector_field(str(vid_dir)+'/test_data_'+str(m)+'.vec', scale=75, width=0.0035)
 
 
 # ==========================================================================================================
@@ -240,10 +235,7 @@ test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1501225077/shrink
 test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1502265171/shrink_piv')
 test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1537007549/shrink_piv')  # lots of nan outputs 
 
-# looks good
 test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/PIV_test')
-
-# ---------
 
 test.masked_frames[1].ROIlist
 
@@ -257,3 +249,107 @@ for roi in test.masked_frames[8].ROIlist:
 
 # check masked images
 cv2.imshow("masked", test.masked_frames[8].masked_image)
+
+
+# ==========================================================================================================
+# OLD: 
+vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1501225077/shrink_piv'
+fact = 3
+# generate a list of frames in given directory
+sorted_frames = []
+for frame in sorted(os.listdir(vid_dir)):
+    #print(frame)
+    if frame.endswith(".tif"):
+        sorted_frames.append(os.path.join(vid_dir,frame))
+
+# loop over frames and execute PIV analysis (without masking)
+for f in range(len(sorted_frames)):
+    #print(f)
+    frame_a  = tools.imread(sorted_frames[f])
+    frame_b  = tools.imread(sorted_frames[f+1])
+    frame_a = (frame_a*1024).astype(np.int32)
+    frame_b = (frame_b*1024).astype(np.int32)
+    u, v, sig2noise = pyprocess.extended_search_area_piv( frame_a, frame_b, \
+        window_size=32*fact, overlap=16*fact, dt=0.02, search_area_size=64*fact, sig2noise_method='peak2peak' )
+    print(u,v,sig2noise)
+    x, y = pyprocess.get_coordinates( image_size=frame_a.shape, search_area_size=64*fact, overlap=16*fact )
+    u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.3 )
+    u, v, mask = validation.global_val( u, v, (-1000, 2000), (-1000, 1000) )
+    u, v = filters.replace_outliers( u, v, method='localmean', max_iter=10, kernel_size=2)
+    x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 96.52 )
+    tools.save(x, y, u, v, mask, str(vid_dir)+'/test_data_'+str(f)+'.vec' )
+    tools.display_vector_field(str(vid_dir)+'/test_data_'+str(f)+'.vec', scale=75, width=0.0035)
+
+# Zoop Masking
+
+# not totally sure where to start here/how to intrgrate with PIA, but going to start by writing a method for one frame:
+frame_path = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1537966443/shrink_piv/SHRINK-16-SPC-UW-1537966451770678-2028363641-000000.tif'
+frame_path = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/SHRINK-8-SPC-UW-1537773780742890-94525972-000500.tif'
+
+# load and show image
+frame_image=imageio.volread(frame_path)   
+#plt.imshow(frame_image, cmap='gray', interpolation='None')  
+
+# create binary image and fill holes   
+binary_image=cv2.threshold(frame_image, 20, 225, cv2.THRESH_BINARY)[1]
+# Fill holes:                                                                                         # ACW added -- need graceful way to deal with dropped frames 
+# after example at https://www.programcreek.com/python/example/89425/cv2.floodFill
+frame_floodfill=binary_image.copy()
+h, w = binary_image.shape[:2]
+mask = np.zeros((h+2, w+2), np.uint8)
+cv2.floodFill(frame_floodfill, mask, (0,0), 255);
+frame_floodfill_inv = cv2.bitwise_not(frame_floodfill)
+binary_image = binary_image.astype(np.uint8) | frame_floodfill_inv.astype(np.uint8)
+#plt.imshow(binary_image, cmap='gray')
+
+# create countours 
+contours, hierarchy = cv2.findContours(binary_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+nx=len(frame_image)
+ny=len(frame_image[0])
+
+# Parse ROIs from contours
+#ROIpad=5
+ROIpad=1        # black out less!
+ROIlist=[]
+for ctr in contours:
+    #print(ctr[:,0,0])
+    area=cv2.contourArea(ctr)
+    bbox=cv2.boundingRect(ctr)
+    if area>min_area and area<max_area:                                        # ACW added to filter ROIs by min area 
+        try:
+            ellbox = cv2.fitEllipse(ctr)
+            ell = Ellipse((ellbox[0][0],ellbox[0][1]),ellbox[1][0],ellbox[1][1],angle=ellbox[2],
+                        linewidth=1,edgecolor='y',facecolor='none')
+            if display_ROIs:
+                plt.gca().add_patch(ell)
+        except:
+            ellbox=None
+        i_beg=np.max([np.min(ctr[:,0,1])-ROIpad,0])
+        i_end=np.min([np.max(ctr[:,0,1])+ROIpad,nx-1])
+        j_beg=np.max([np.min(ctr[:,0,0])-ROIpad,0])
+        j_end=np.min([np.max(ctr[:,0,0])+ROIpad,ny-1])
+        
+        category = 'unknown'
+        
+        # get blob subimage
+        blob_img = Image.fromarray(frame_image[i_beg:i_end, j_beg:j_end]) 
+        
+        ROIlist.append(ROI(ROIimage=blob_img,edge=np.squeeze(ctr,axis=1),
+                                area=area,bbox=bbox,ellbox=ellbox,
+                                i_beg=i_beg,i_end=i_end,j_beg=j_beg,j_end=j_end,
+                                category=category))                     
+    
+# fill in countours to mask out zooplankton
+img = cv2.imread(frame_path)
+
+for roi in ROIlist:
+    # Define an array of endpoints of Hexagon
+    #points = np.array([[219,334], [219,301], [252,301], [252,334]])
+    points = np.array([[roi.j_beg,roi.i_end],[roi.j_beg,roi.i_beg],[roi.j_end,roi.i_beg],[roi.j_end,roi.i_end]])
+    # Use fillPoly() function and give input as image,
+    # end points,color of polygon
+    # Here color of polygon will be green
+    cv2.fillPoly(img, pts=[points], color=(00, 0, 0))
+
+# Displaying the image
+cv2.imshow("Filled Zoops", img)
