@@ -1,4 +1,7 @@
 
+# A script to read in a directory of ZooCam video frames, mask out zooplankton (FillPoly black), and calculate flowfield displacement using PIV machinery
+
+# ACW June 2022
 
 # ==================================================================
 
@@ -16,6 +19,7 @@ import cv2
 import csv
 import time
 import random
+import matplotlib
 from matplotlib.patches import Rectangle, Circle, Polygon, Ellipse
 import matplotlib.colors as mpl_colors
 import matplotlib.patches as mpl_patches
@@ -49,21 +53,43 @@ import pandas as pd
 
 # ==================================================================
 
-# ROI parameters
+# ROI parameters ------
 minThreshold = 20
 maxThreshold = 255
 min_area = 30
 max_area = 5000
 
-# PIV parameters
-fact = 3
-wndw = 32
-ovrlp = 16
-srch = 64
+# PIV parameters ------
+frm_rt = (1/20)     # 20 frames per second
+# 5 x 4 grid -- currently the best I think 
 
-# Directory containing frames 
-#vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1537966443/shrink_piv'
-#vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1501225077/shrink_piv'
+wndw =  256
+ovrlp = 128
+srch = 256
+
+# -------
+# Below: NON extended search (srch==window)
+
+# # single arrow -- need to update display code, but otherwise running
+# wndw =  650   # 32
+# ovrlp = 325  # 16
+# srch = 650   # 64
+
+# # 2 x 1 grid
+# wndw =  512
+# ovrlp = 256
+# srch = 512
+
+# # 3 x 2 grid
+# wndw =  384
+# ovrlp = 192
+# srch = 384
+
+# # 5x4 window - extended search (srch>window)
+# fact = 3
+# wndw =  32
+# ovrlp = 16
+# srch = 64
 
 # ==================================================================
 class ROI():
@@ -189,8 +215,7 @@ class PIV():
             if frame.endswith(".tif"):
                 self.sorted_frames.append(os.path.join(self.vid_dir,frame))
             
-        # fill array of masked frames 
-        # Im not really sure what this is going to look like
+        # populate array of masked frames 
         for f in range(len(self.sorted_frames)):
             self.masked_frames.append(ZoopMask(frame_path=self.sorted_frames[f]))
         
@@ -199,51 +224,72 @@ class PIV():
             
     def analysis(self):
         for m in range(len(self.masked_frames)-1):
-            #frame_a  = tools.imread(self.masked_frames[m])
-            #frame_b  = tools.imread(self.masked_frames[m+1])
+            # 1) read in sequential masked frames
             frame_a = tools.rgb2gray(self.masked_frames[m].masked_image)
             frame_b = tools.rgb2gray(self.masked_frames[m+1].masked_image)            
             frame_a = (frame_a*1024).astype(np.int32)
             frame_b = (frame_b*1024).astype(np.int32)
             
+            # 2) divid frames into window, normalize, fft corrlations, corrleation to displacement, signal to noise ratios calculated
+            #u, v, sig2noise = pyprocess.extended_search_area_piv( frame_a, frame_b, \
+            #    window_size=(wndw*fact), overlap=(ovrlp*fact), dt=0.02, search_area_size=(srch*fact), sig2noise_method='peak2peak' )
+            
+            # No longer using the extended search functionality, turned normalization back on to account for this change
             u, v, sig2noise = pyprocess.extended_search_area_piv( frame_a, frame_b, \
-                window_size=(wndw*fact), overlap=(ovrlp*fact), dt=0.02, search_area_size=(srch*fact), sig2noise_method='peak2peak' )
-            print('ROUND 1:')
+                window_size=wndw, overlap=ovrlp, dt=frm_rt, search_area_size=None, sig2noise_method='peak2peak', normalized_correlation=True )
+            print('ROUND 1: Raw displacements')
             print(u, v, sig2noise)
             
-            x, y = pyprocess.get_coordinates( image_size=frame_a.shape, search_area_size=(srch*fact), overlap=(ovrlp*fact) )
-            #x, y = pyprocess.get_rect_coordinates( frame_a=frame_a.shape, window_size=(wndw*fact), overlap=(ovrlp*fact) )
+            # 3) get window coordinates (bins)
+                # possible I should be using get_rect_coords but the output is different so dont want to fix yet
+            #x, y = pyprocess.get_coordinates( image_size=frame_a.shape, search_area_size=(srch*fact), overlap=(ovrlp*fact) )
+            x, y = pyprocess.get_coordinates( image_size=frame_a.shape, search_area_size=srch, overlap=ovrlp )
             
-            u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.3 )   # masks anything with a s2n less than 1.3
-            print('ROUND 2:')
+            # 4) mask displacement values with s2n value below threshold (should think about this thresh more)
+            u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.3 )
+            # masks (with nan) anything with a s2n less than 1.3
+            print('ROUND 2: S2N mask')
             print(u,v,mask)
             
-            u, v, mask = validation.global_val( u, v, (-1000, 2000), (-1000, 1000) )    # masks anything outside of these global outliers -- aka any unrealistic flowfield
-            print('ROUND 3:')
-            print(u,v,mask)
+            # Masks anything outside of these global outliers - not applying right now
+                # Note to self: If I want to use this fitler -- need to think about reasonable outliers in out setting
+            # u, v, mask = validation.global_val( u, v, (-1000, 2000), (-1000, 1000) )
+            # print('ROUND 3:')
+            # print(u,v,mask)
             
+            # 5) Fills in masked grid values using neighboring windows
             u, v = filters.replace_outliers( u, v, method='localmean', max_iter=10, kernel_size=2)
-            print('ROUND 4:')
+            print('ROUND 3: Filled outliers')
             print(u,v)
             
-            #x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 96.52 )  # just divides everything by the scaling factor -- probably don't need
-            #print('ROUND 5')
-            #print(u,v)
+            # 6) Scales all values -- important for displaying
+                # Need to think about: if I dont scale it the arrows are larger than the frame -- does this mean my displacements are way too large?
+            #x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 96.52 ) 
+            x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 100 )  
+            print('ROUND 4: Scaled (for plotting)')
+            print(u,v)
             
+            # 7) Save output file
             tools.save(x, y, u, v, mask, str(self.vid_dir)+'/test_data_'+str(m)+'.vec' )
-            #tools.display_vector_field(str(self.vid_dir)+'/test_data_'+str(m)+'.vec', scale=75, width=0.0035)
+            
+            # 8) Display flowfields 
+            tools.display_vector_field(str(self.vid_dir)+'/test_data_'+str(m)+'.vec', scale=75, width=0.0035)
 
 
 # ==========================================================================================================
 
-test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1501225077/shrink_piv')  # high density -- nans
-test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1502265171/shrink_piv')
-test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1537007549/shrink_piv')  # lots of nan outputs 
+# Run code:
 
-# looks good
+test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1501225077/shrink_piv')  # fast flow
+test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1502265171/shrink_piv')
+test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1537007549/shrink_piv') 
+
 test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/PIV_test')
 
+plt.close("all")
+
 # ---------
+# Extra checks  
 
 test.masked_frames[1].ROIlist
 
