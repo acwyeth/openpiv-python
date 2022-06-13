@@ -3,6 +3,9 @@
 
 # ACW June 2022
 
+#cd /home/dg/Wyeth2/GIT_repos_insitu/openpiv-python
+#python3.8
+
 # ==================================================================
 
 from openpiv import tools, pyprocess, scaling, validation, filters
@@ -51,6 +54,9 @@ load_dir=os.getcwd()
 global selector
 import pandas as pd
 
+from importlib import reload
+reload(tools)
+
 # ==================================================================
 
 # ROI parameters ------
@@ -61,14 +67,14 @@ max_area = 5000
 
 # PIV parameters ------
 frm_rt = (1/20)     # 20 frames per second
-# 5 x 4 grid -- currently the best I think 
 
+# NON extended search (srch==window)
+# 5 x 4 grid -- currently the best I think 
 wndw =  256
 ovrlp = 128
 srch = 256
 
 # -------
-# Below: NON extended search (srch==window)
 
 # # single arrow -- need to update display code, but otherwise running
 # wndw =  650   # 32
@@ -140,15 +146,20 @@ class ZoopMask():
         self.ROIlist = ROIlist
         
         #call method
-        self.masking(frame_path=self.frame_path)
-            
+        try:
+            self.masking(frame_path=self.frame_path)
+            #print('Masked frame')
+        except:
+            pass
+            #print("ERROR: Could not mask frame") 
+    
     def masking(self, frame_path=None):            
-        self.frame_path = frame_path
-        self.frame_image=imageio.volread(self.frame_path)   
+        self.frame_path = frame_path                                                                                
+        self.frame_image=imageio.volread(self.frame_path)  
         
         # Create binary image and fill holes   
         self.binary_image=cv2.threshold(self.frame_image, 20, 225, cv2.THRESH_BINARY)[1]
-        # Fill holes:                                                                                         # ACW added -- need graceful way to deal with dropped frames 
+        # Fill holes:
         # after example at https://www.programcreek.com/python/example/89425/cv2.floodFill
         frame_floodfill=self.binary_image.copy()
         h, w = self.binary_image.shape[:2]
@@ -205,7 +216,7 @@ class ZoopMask():
         # cv2.imshow("Filled Zoops", self.masked_image)        
 
 class PIV():
-    def __init__(self, vid_dir):
+    def __init__(self, vid_dir, save_setting=True, display_setting=True, verbosity_setting=True):
         self.vid_dir=vid_dir
         self.sorted_frames = []
         self.masked_frames = []
@@ -214,92 +225,90 @@ class PIV():
         for frame in sorted(os.listdir(self.vid_dir)):
             if frame.endswith(".tif"):
                 self.sorted_frames.append(os.path.join(self.vid_dir,frame))
-            
-        # populate array of masked frames 
-        for f in range(len(self.sorted_frames)):
-            self.masked_frames.append(ZoopMask(frame_path=self.sorted_frames[f]))
         
-        # Call method
-        self.analysis() 
+        if len(self.sorted_frames)>0:
             
-    def analysis(self):
+            # populate array of masked frames 
+            #for f in range(5):
+            for f in range(len(self.sorted_frames)):
+                self.masked_frames.append(ZoopMask(frame_path=self.sorted_frames[f]))
+            
+            # Call method
+            self.analysis(save=save_setting, display=display_setting, verbose=verbosity_setting) 
+        
+        else: 
+            print('ERROR: Target directory empty')
+            
+    def analysis(self, save=True, display=True, verbose=True):
         for m in range(len(self.masked_frames)-1):
-            # 1) read in sequential masked frames
-            frame_a = tools.rgb2gray(self.masked_frames[m].masked_image)
-            frame_b = tools.rgb2gray(self.masked_frames[m+1].masked_image)            
-            frame_a = (frame_a*1024).astype(np.int32)
-            frame_b = (frame_b*1024).astype(np.int32)
             
-            # 2) divid frames into window, normalize, fft corrlations, corrleation to displacement, signal to noise ratios calculated
-            #u, v, sig2noise = pyprocess.extended_search_area_piv( frame_a, frame_b, \
-            #    window_size=(wndw*fact), overlap=(ovrlp*fact), dt=0.02, search_area_size=(srch*fact), sig2noise_method='peak2peak' )
+            # Skip over dropped frames
+            try:
             
-            # No longer using the extended search functionality, turned normalization back on to account for this change
-            u, v, sig2noise = pyprocess.extended_search_area_piv( frame_a, frame_b, \
-                window_size=wndw, overlap=ovrlp, dt=frm_rt, search_area_size=None, sig2noise_method='peak2peak', normalized_correlation=True )
-            print('ROUND 1: Raw displacements')
-            print(u, v, sig2noise)
+                # 1) read in sequential masked frames
+                frame_a = tools.rgb2gray(self.masked_frames[m].masked_image)
+                frame_b = tools.rgb2gray(self.masked_frames[m+1].masked_image)            
+                frame_a = (frame_a*1024).astype(np.int32)
+                frame_b = (frame_b*1024).astype(np.int32)
+                
+                # 2) divid frames into window, normalize, fft corrlations, corrleation to displacement, signal to noise ratios calculated
+                #u, v, sig2noise = pyprocess.extended_search_area_piv( frame_a, frame_b, \
+                #    window_size=(wndw*fact), overlap=(ovrlp*fact), dt=0.02, search_area_size=(srch*fact), sig2noise_method='peak2peak' )
+                
+                # No longer using the extended search functionality, turned normalization back on to account for this change
+                u, v, sig2noise = pyprocess.extended_search_area_piv( frame_a, frame_b, \
+                    window_size=wndw, overlap=ovrlp, dt=frm_rt, search_area_size=None, sig2noise_method='peak2peak', normalized_correlation=True )
+                if verbose == True:
+                    print('ROUND 1: Raw displacements')
+                    print(u, v, sig2noise)
+                
+                # 3) get window coordinates (bins)
+                    # possible I should be using get_rect_coords but the output is different so dont want to fix yet
+                #x, y = pyprocess.get_coordinates( image_size=frame_a.shape, search_area_size=(srch*fact), overlap=(ovrlp*fact) )
+                x, y = pyprocess.get_coordinates( image_size=frame_a.shape, search_area_size=srch, overlap=ovrlp )
+                
+                # 4) mask displacement values with s2n (peak2peak) value below threshold (should think about this thresh more)
+                u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.3 )
+                # masks (with nan) anything with a s2n less than 1.3
+                if verbose == True:
+                    print('ROUND 2: S2N mask')
+                    print(u,v,mask)
+                
+                # Masks anything outside of these global outliers - not applying right now
+                    # Note to self: If I want to use this fitler -- need to think about reasonable outliers in out setting
+                # u, v, mask = validation.global_val( u, v, (-1000, 2000), (-1000, 1000) )
+                # print('ROUND 3:')
+                # print(u,v,mask)
+                
+                # 5) Fills in masked grid values using neighboring windows
+                u, v = filters.replace_outliers( u, v, method='localmean', max_iter=10, kernel_size=2)
+                if verbose == True:
+                    print('ROUND 3: Filled outliers')
+                    print(u,v)
+                
+                # 6) Transform Coordinates 
+                # Converts coordinate systems from/to the image based / physical based 
+                x, y, u, v = tools.transform_coordinates(x, y, u, v)
+                
+                # 7) Scales all values -- important for displaying
+                    # Need to think about: if I dont scale it the arrows are larger than the frame -- does this mean my displacements are way too large?
+                #x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 96.52 ) 
+                x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 100 )  
+                if verbose == True:
+                    print('ROUND 4: Scaled (for plotting)')
+                    print(u,v)
+                
+                # 8) Save output file
+                if save == True:
+                    tools.save(x, y, u, v, mask, str(self.vid_dir)+'/PIV_data_'+str(m)+'.vec' )
+                    if verbose == True:
+                        print('File saved to: '+ str(self.vid_dir))
+                
+                # 9) Display flowfields 
+                if display == True:
+                    #tools.display_vector_field(str(self.vid_dir)+'/PIV_data_'+str(m)+'.vec', scale=75, width=0.0035)
+                    # doesnt require a file to be saved 
+                    tools.display_vector_field_AW(x, y, u, v, mask, scale=75, width=0.0035)
             
-            # 3) get window coordinates (bins)
-                # possible I should be using get_rect_coords but the output is different so dont want to fix yet
-            #x, y = pyprocess.get_coordinates( image_size=frame_a.shape, search_area_size=(srch*fact), overlap=(ovrlp*fact) )
-            x, y = pyprocess.get_coordinates( image_size=frame_a.shape, search_area_size=srch, overlap=ovrlp )
-            
-            # 4) mask displacement values with s2n value below threshold (should think about this thresh more)
-            u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.3 )
-            # masks (with nan) anything with a s2n less than 1.3
-            print('ROUND 2: S2N mask')
-            print(u,v,mask)
-            
-            # Masks anything outside of these global outliers - not applying right now
-                # Note to self: If I want to use this fitler -- need to think about reasonable outliers in out setting
-            # u, v, mask = validation.global_val( u, v, (-1000, 2000), (-1000, 1000) )
-            # print('ROUND 3:')
-            # print(u,v,mask)
-            
-            # 5) Fills in masked grid values using neighboring windows
-            u, v = filters.replace_outliers( u, v, method='localmean', max_iter=10, kernel_size=2)
-            print('ROUND 3: Filled outliers')
-            print(u,v)
-            
-            # 6) Scales all values -- important for displaying
-                # Need to think about: if I dont scale it the arrows are larger than the frame -- does this mean my displacements are way too large?
-            #x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 96.52 ) 
-            x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 100 )  
-            print('ROUND 4: Scaled (for plotting)')
-            print(u,v)
-            
-            # 7) Save output file
-            tools.save(x, y, u, v, mask, str(self.vid_dir)+'/test_data_'+str(m)+'.vec' )
-            
-            # 8) Display flowfields 
-            tools.display_vector_field(str(self.vid_dir)+'/test_data_'+str(m)+'.vec', scale=75, width=0.0035)
-
-
-# ==========================================================================================================
-
-# Run code:
-
-test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1501225077/shrink_piv')  # fast flow
-test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1502265171/shrink_piv')
-test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1537007549/shrink_piv') 
-
-test = PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/PIV_test')
-
-plt.close("all")
-
-# ---------
-# Extra checks  
-
-test.masked_frames[1].ROIlist
-
-# check ROIS
-plt.imshow(test.masked_frames[8].frame_image, cmap='gray')
-for roi in test.masked_frames[8].ROIlist:
-    edge_color='white'                                                                  
-    rect = Rectangle((roi.j_beg,roi.i_beg),roi.j_end-roi.j_beg,roi.i_end-roi.i_beg,     
-                        linewidth=1,edgecolor=edge_color,facecolor='none')
-    plt.gca().add_patch(rect)
-
-# check masked images
-cv2.imshow("masked", test.masked_frames[8].masked_image)
+            except:
+                print('SKIP: Corrupted frame')

@@ -621,4 +621,115 @@ def transform_coordinates(x, y, u, v):
     y = y[::-1, :]
     v *= -1
     return x, y, u, v
+
+# ===================================
+# ACW modifications
+
+def display_vector_field_AW(
+    x,
+    y,
+    u,
+    v,
+    mask,
+    on_img=False,
+    image_name="None",
+    window_size=32,
+    scaling_factor=1,
+    widim=False,
+    ax=None,
+    width=0.0025,
+    **kw
+):
+    """ Displays quiver plot of the data stored in the file 
+    
+    
+    Parameters
+    ----------
+    filename :  string
+        the absolute path of the text file
+
+    on_img : Bool, optional
+        if True, display the vector field on top of the image provided by 
+        image_name
+
+    image_name : string, optional
+        path to the image to plot the vector field onto when on_img is True
+
+    window_size : int, optional
+        when on_img is True, provide the interrogation window size to fit the 
+        background image to the vector field
+
+    scaling_factor : float, optional
+        when on_img is True, provide the scaling factor to scale the background
+        image to the vector field
+    
+    widim : bool, optional, default is False
+        when widim == True, the y values are flipped, i.e. y = y.max() - y
         
+    Key arguments   : (additional parameters, optional)
+        *scale*: [None | float]
+        *width*: [None | float]
+    
+    
+    See also:
+    ---------
+    matplotlib.pyplot.quiver
+    
+        
+    Examples
+    --------
+    --- only vector field
+    >>> openpiv.tools.display_vector_field('./exp1_0000.txt',scale=100, 
+                                           width=0.0025) 
+
+    --- vector field on top of image
+    >>> openpiv.tools.display_vector_field('./exp1_0000.txt', on_img=True, 
+                                          image_name='exp1_001_a.bmp', 
+                                          window_size=32, scaling_factor=70, 
+                                          scale=100, width=0.0025)
+    
+    """
+
+    # a = np.loadtxt(filename)
+    # parse
+    # x, y, u, v, mask = a[:, 0], a[:, 1], a[:, 2], a[:, 3], a[:, 4]
+
+
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.get_figure()
+
+    if on_img is True:  # plot a background image
+        im = imread(image_name)
+        im = negative(im)  # plot negative of the image for more clarity
+        # imsave('neg.tif', im)
+        # im = imread('neg.tif')
+        xmax = np.amax(x) + window_size / (2 * scaling_factor)
+        ymax = np.amax(y) + window_size / (2 * scaling_factor)
+        ax.imshow(im, cmap="Greys_r", extent=[0.0, xmax, 0.0, ymax])
+        # plt.draw()
+
+    invalid = mask.astype("bool")  
+    valid = ~invalid
+
+    # visual conversion for the data on image
+    # to be consistent with the image coordinate system
+
+    # if on_img:
+    #     y = y.max() - y
+    #     v *= -1
+
+    ax.quiver(
+        x[invalid], y[invalid], u[invalid], v[invalid], color="r", width=width, **kw)
+    ax.quiver(x[valid], y[valid], u[valid], v[valid], color="b", width=width,**kw)
+    
+    # if on_img is False:
+    #     ax.invert_yaxis()
+    
+    ax.set_aspect(1.)
+    # fig.canvas.set_window_title('Vector field, '+str(np.count_nonzero(invalid))+' wrong vectors')
+
+    plt.show()
+
+    return fig, ax
