@@ -11,6 +11,9 @@
         
 # Notes:
     # x,y,u,v coordinates are currently being transformed to match frames visually -- need to check it matches T3D
+    
+# Notes:
+    # Name figure -- name (number) of first frame 
 
 # ========================================================
 
@@ -23,8 +26,10 @@ from importlib import reload
 
 sys.path.insert(0, '/home/dg/Wyeth2/GIT_repos_insitu/openpiv-python/openpiv/tutorials')
 import PIV_w_Zoop_Mask as piv
+import PIV_w_Zoop_Mask_for_PIA as piv2
 
 reload(piv)
+reload(piv2)
 
 # ========================================================
 
@@ -63,7 +68,7 @@ test = piv.PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1537007549/sh
 test = piv.PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1537852560/shrink_piv', save_setting=True, display_setting=True, verbosity_setting=True)   # basically no snow 
 test = piv.PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1535419622/shrink_piv', save_setting=True, display_setting=True, verbosity_setting=True)   # corrupted frames 
 
-test = piv.PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/PIV_test', save_setting=False, display_setting=True, verbosity_setting=True)
+test = piv.PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/PIV_test', save_setting=False, display_setting=True, verbosity_setting=False)
 #test = piv.PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test', save_setting=False, display_setting=True, verbosity_setting=False)
 
 #test = piv.PIV(vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1535419622/shrink',save_setting=False, display_setting=True, verbosity_setting=False)   # corrupted frame 
@@ -87,3 +92,16 @@ for roi in test.masked_frames[1].ROIlist:
 # check masked images
 #cv2.imshow("masked", test.masked_frames[1].masked_image)       # this line of code is broken for some reason -- crashes python
 plt.imshow(test.masked_frames[8].masked_image)
+
+# =========================================================
+
+# Testing ....for_PIA
+
+# inputs = frame1 and frame2, outputs = x,y,u,v,mask
+
+test = piv2.PIV(frame1= '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/SHRINK-8-SPC-UW-1537773780742890-94525972-000500.tif', frame2= '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/SHRINK-8-SPC-UW-1537773780790949-94575976-000501.tif', save_setting=False, display_setting=True, verbosity_setting=True)
+
+plt.imshow(test.masked_frames[1].masked_image)
+
+test.output
+test.output[1]
