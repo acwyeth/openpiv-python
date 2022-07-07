@@ -47,30 +47,49 @@ test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_trackin
     class_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/ROI_classified/predictions.csv',
     CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
 
-# --
 test.remove_flow()                  # run time is fairly slow 
 test.assign_classification()
 test.assign_chemistry()
 
-# --
-test.zoop_paths[0].x_motion
-test.zoop_paths[0].classification
-
-test.profile                        # need to double check -- dont match old outputs but those are also subject to error
+test.profile                        
 test.nearest_earlier_cast           
 test.oxygen_mgL_avg
 test.depth_avg
 
+test.zoop_paths[0].x_motion
+test.zoop_paths[0].classification
 
+# ------------
 
+test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_600_800/zoop_30-5000_joined_la2.dat', 
+    snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_600_800',
+    class_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_600_800/ROIs_classified/predictions.csv',
+    CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
 
+test.remove_flow()                  # run time is fairly slow 
+test.assign_classification()
+test.assign_chemistry()
 
+# ------------
+# short clip with dropped frames 
 
+# I dont know why but I am getting an error readying in .dat files when frames are dropped? 
+# Its the spacing of the internal knots -- I was working on this a while ago and I THINK I needed to change the look ahead paramter in T3D from 5 to 2?
+# I THINK THIS WORKED?
+# I think I am getting to the point where I just need to rerun all my test clips -- too many little things have changes
 
+test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_100_rerun/zoop_30-5000_DG_la2.dat', 
+    snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_100_rerun',
+    class_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_100_rerun/ROIs_classified/predictions.csv',
+    CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
 
+#ps = sio.loadmat('/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_100_rerun/zoop_30-5000_DG_la2.dat',variable_names=['data'],simplify_cells=True)['data']
+#from in_situ_analysis_PIVintegration import Path
+#paths=[Path(i, ps[i], k_val=1, knot_smooth=3, verbose=True) for i in range(len(ps))]
 
-
-
+test.remove_flow()                  # run time is fairly slow 
+test.assign_classification()
+test.assign_chemistry()
 
 # ==================================================================================
 

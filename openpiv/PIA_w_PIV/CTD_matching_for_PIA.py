@@ -145,9 +145,7 @@ class Analysis():
         print('added {} ctd files'.format(len(self.ctd_files)))
 
         # extract datenum from video file name
-        dt = datetime.fromtimestamp(self.profile)               # WHAT TIME ZONE?? Doesnt match my old output. Which doesnt neccessarily mean this is wrong... 
-        #dt_local = dt.astimezone(timezone('US/Pacific'))
-        #dt_local = timezone('US/Pacific').localize(dt)
+        dt = datetime.utcfromtimestamp(self.profile) 
         self.vid_datnum = dt.strftime("%d-%b-%Y %H:%M:%S")
 
         # call methods

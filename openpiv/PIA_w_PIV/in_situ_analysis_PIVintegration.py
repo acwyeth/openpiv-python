@@ -320,8 +320,8 @@ class Analysis():
         for p in self.zoop_paths:
             for l in range(len(p.frames)):
                 # Save frame, x, and y position of that localization
-                #frame = (p.frames[l]-1)
-                frame = (p.frames[l]+499)                                             # TEMP FIX: for motion test video
+                frame = (p.frames[l]-1)
+                #frame = (p.frames[l]+499)                                             # TEMP FIX: for motion test video
                 #frame = (p.frames[l]+599) 
                 x_pos = p.x_pos[l]
                 y_pos = p.y_pos[l]
