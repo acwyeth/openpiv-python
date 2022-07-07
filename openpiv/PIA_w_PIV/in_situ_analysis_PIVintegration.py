@@ -32,6 +32,9 @@ import sys
 from openpiv import tools, pyprocess, scaling, validation, filters
 import PIV_w_Zoop_Mask_for_PIA as piv
 
+# paskages for CTD matching
+import CTD_matching_for_PIA as ctd
+
 # numpy defaults
 np.set_printoptions(suppress=True, linewidth=100)
 
@@ -71,7 +74,7 @@ class Path():
         self.y_motion = np.zeros(self.y_pos.size)
         self.classification = np.empty(self.x_pos.size, dtype="object")
         self.classification[:] = 'None'
-
+        
         if verbose:
             print('frames =',self.frames)
             print('x_pos =',self.x_pos)
@@ -111,6 +114,7 @@ def parse_paths(filename, k_value=None, knots=None, remove_zero_length=True):
 
 # ==========================================================
 
+# using PTV analysis (not using right now)
 class Flowfield():
     """Class to create a flowfield object for the entire video (spatial and temporal interpolations)
     """
@@ -213,6 +217,7 @@ class Flowfield_PIV():
         
         # find closest x and y coordinates
         coordinates = list(zip(self.frame_flow.output[0], self.frame_flow.output[1]))
+        #coordinates = list(zip(self.frame_flow.output[0]*96.52, self.frame_flow.output[1]*96.52))
         tree = spatial.KDTree(coordinates)
         pos_ind = tree.query([(self.x_pos,self.y_pos)])[1][0]
         
@@ -220,13 +225,14 @@ class Flowfield_PIV():
         self.point_x_flow = self.frame_flow.output[2, pos_ind]
         self.point_y_flow = self.frame_flow.output[3, pos_ind]
         self.point_flow = [self.point_x_flow, self.point_y_flow]
+        
         # except:
         #    print('frame_a and/or frame_b corrupt')
 
 class Analysis():
     """ Class to analyze pre-processed flow and swimming paths
     """
-    def __init__(self, zoop_dat_file=None, zoop_paths=None, snow_directory=None, class_file=None, class_rows=[],remove_flow=True):
+    def __init__(self, zoop_dat_file=None, zoop_paths=None, snow_directory=None, class_file=None, CTD_dir=None, class_rows=[],remove_flow=True):
         # Read in zoop .dat file, extract data, create a Path object for each path, save in an array called 'paths'
         self.zoop_dat_file = zoop_dat_file
         if zoop_paths == None:
@@ -255,7 +261,12 @@ class Analysis():
             self.class_rows.append(row)
         #print(class_rows)
         csv_file.close()
-        print('Success')  
+        print('Success')
+        
+        # Read in CTD directory
+        print('Trying to load CTD casts from: ', CTD_dir)
+        self.CTD_dir = CTD_dir
+        print('Success')
     
     def remove_flow(self, plot_flow_motion=True):
         for p in self.zoop_paths:
@@ -309,9 +320,9 @@ class Analysis():
         for p in self.zoop_paths:
             for l in range(len(p.frames)):
                 # Save frame, x, and y position of that localization
-                #frame = (p.frames[l]-1)                                               # TEMP FIX: subtracted one until I fix code that assigned frame number to zoop_paths
-                #frame = (p.frames[l]+499)                                             # TEMP FIX: subtracted  until I fix code that assigned frame number to zoop_paths - for motion test video
-                frame = (p.frames[l]+599) 
+                #frame = (p.frames[l]-1)
+                frame = (p.frames[l]+499)                                             # TEMP FIX: for motion test video
+                #frame = (p.frames[l]+599) 
                 x_pos = p.x_pos[l]
                 y_pos = p.y_pos[l]
                 # Pull ROI infomration from frame number
@@ -325,6 +336,27 @@ class Analysis():
                 if len(roi) > 1:
                     print('ERROR: more than more 1 ROI found')
 
+    def assign_chemistry(self):
+        # extract video profile from file path
+        pro_line = self.class_rows[1][1]    
+        # Save frame number
+        pro_tag = '-UW-'                                          # frame number is listed directly before group number --  I think this is the easiest way to find it
+        pro_tag_ind = pro_line.find(pro_tag)+4
+        pro_len= 10                                                # frame number is 6 digits long  
+        profile_number = int(pro_line[pro_tag_ind:(pro_tag_ind+pro_len)])
+        
+        CTD_chemistry = ctd.Analysis(CTDdir=self.CTD_dir ,profile=profile_number)
+
+        # assign CTD data to analysis object         
+        self.profile = CTD_chemistry.vid_datnum
+        self.nearest_earlier_cast = CTD_chemistry.nearest_earlier_cast
+        #self.time_offset = CTD_chemistry.time_offset
+        self.temp_avg = CTD_chemistry.temp_avg
+        self.fluor_avg = CTD_chemistry.fluor_avg
+        self.depth_avg = CTD_chemistry.depth_avg
+        self.salinity_avg = CTD_chemistry.salinity_avg
+        self.oxygen_mgL_avg = CTD_chemistry.oxygen_mgL_avg
+        
     #def write_zoop_file(self):
         # video ID (datenum)
         # path number
@@ -334,70 +366,6 @@ class Analysis():
         # avg y motion
         # most common (?) classification
         # classification flag (something to indicate if <75% of classifications matched or something)
-
-    def spatial_parsing_9bin(self, bin_num=9, x_pixels=876, y_pixels=650, start_frame=None, end_frame=None):
-        '''Method to parse snow localizations into 9 spatial bins and visualize variation in speed acorss bins (get a handle on spatial interpolation)
-                Note: I should probably switch over to numpy to be consistant with the rest of the script
-        '''
-        #bins = [i for i in range(bin_num)]
-        x_bins = list(np.linspace(0,x_pixels,(int(math.sqrt(bin_num)+1))))
-        y_bins = list(np.linspace(0,y_pixels,(int(math.sqrt(bin_num)+1))))
-        #print(x_bins)
-        #print(y_bins)
-        self.data=[]
-        self.df=pd.DataFrame()
-        self.x_avgs=pd.DataFrame()
-        self.y_avgs=pd.DataFrame()
-
-        self.start_frame=start_frame
-        self.end_frame=end_frame
-
-        for p in range(len(self.snow_paths)):                           
-            for l in range(len(self.snow_paths[p].frames)):             
-                if self.snow_paths[p].frames[l] > self.start_frame and self.snow_paths[p].frames[l] < self.end_frame:    
-                    if self.snow_paths[p].x_pos[l] > x_bins[0] and self.snow_paths[p].x_pos[l] < x_bins[1] and self.snow_paths[p].y_pos[l] > y_bins[0] and self.snow_paths[p].y_pos[l] < y_bins[1]:
-                        #print('Bin 1')
-                        self.data.append([1, self.snow_paths[p].frames[l], self.snow_paths[p].x_pos[l], self.snow_paths[p].y_pos[l], self.snow_paths[p].x_vel_smoothed[l], self.snow_paths[p].y_vel_smoothed[l]])
-                    elif self.snow_paths[p].x_pos[l] > x_bins[1] and self.snow_paths[p].x_pos[l] < x_bins[2] and self.snow_paths[p].y_pos[l] > y_bins[0] and self.snow_paths[p].y_pos[l] < y_bins[1]:
-                        #print('Bin 2')
-                        self.data.append([2, self.snow_paths[p].frames[l], self.snow_paths[p].x_pos[l], self.snow_paths[p].y_pos[l], self.snow_paths[p].x_vel_smoothed[l], self.snow_paths[p].y_vel_smoothed[l]])
-                    elif self.snow_paths[p].x_pos[l] > x_bins[2] and self.snow_paths[p].x_pos[l] < x_bins[3] and self.snow_paths[p].y_pos[l] > y_bins[0] and self.snow_paths[p].y_pos[l] < y_bins[1]:
-                        #print('Bin 3')
-                        self.data.append([3, self.snow_paths[p].frames[l], self.snow_paths[p].x_pos[l], self.snow_paths[p].y_pos[l], self.snow_paths[p].x_vel_smoothed[l], self.snow_paths[p].y_vel_smoothed[l]])
-                    elif self.snow_paths[p].x_pos[l] > x_bins[0] and self.snow_paths[p].x_pos[l] < x_bins[1] and self.snow_paths[p].y_pos[l] > y_bins[1] and self.snow_paths[p].y_pos[l] < y_bins[2]:
-                        #print('Bin 4')
-                        self.data.append([4, self.snow_paths[p].frames[l], self.snow_paths[p].x_pos[l], self.snow_paths[p].y_pos[l], self.snow_paths[p].x_vel_smoothed[l], self.snow_paths[p].y_vel_smoothed[l]])
-                    elif self.snow_paths[p].x_pos[l] > x_bins[1] and self.snow_paths[p].x_pos[l] < x_bins[2] and self.snow_paths[p].y_pos[l] > y_bins[1] and self.snow_paths[p].y_pos[l] < y_bins[2]:
-                        #print('Bin 5')
-                        self.data.append([5, self.snow_paths[p].frames[l], self.snow_paths[p].x_pos[l], self.snow_paths[p].y_pos[l], self.snow_paths[p].x_vel_smoothed[l], self.snow_paths[p].y_vel_smoothed[l]])
-                    elif self.snow_paths[p].x_pos[l] > x_bins[2] and self.snow_paths[p].x_pos[l] < x_bins[3] and self.snow_paths[p].y_pos[l] > y_bins[1] and self.snow_paths[p].y_pos[l] < y_bins[2]:
-                        #print('Bin 6')
-                        self.data.append([6, self.snow_paths[p].frames[l], self.snow_paths[p].x_pos[l], self.snow_paths[p].y_pos[l], self.snow_paths[p].x_vel_smoothed[l], self.snow_paths[p].y_vel_smoothed[l]])
-                    elif self.snow_paths[p].x_pos[l] > x_bins[0] and self.snow_paths[p].x_pos[l] < x_bins[1] and self.snow_paths[p].y_pos[l] > y_bins[2] and self.snow_paths[p].y_pos[l] < y_bins[3]:
-                        #print('Bin 7')
-                        self.data.append([7, self.snow_paths[p].frames[l], self.snow_paths[p].x_pos[l], self.snow_paths[p].y_pos[l], self.snow_paths[p].x_vel_smoothed[l], self.snow_paths[p].y_vel_smoothed[l]])
-                    elif self.snow_paths[p].x_pos[l] > x_bins[1] and self.snow_paths[p].x_pos[l] < x_bins[2] and self.snow_paths[p].y_pos[l] > y_bins[2] and self.snow_paths[p].y_pos[l] < y_bins[3]:
-                        #print('Bin 8')
-                        self.data.append([8, self.snow_paths[p].frames[l], self.snow_paths[p].x_pos[l], self.snow_paths[p].y_pos[l], self.snow_paths[p].x_vel_smoothed[l], self.snow_paths[p].y_vel_smoothed[l]])
-                    elif self.snow_paths[p].x_pos[l] > x_bins[2] and self.snow_paths[p].x_pos[l] < x_bins[3] and self.snow_paths[p].y_pos[l] > y_bins[2] and self.snow_paths[p].y_pos[l] < y_bins[3]:
-                        #print('Bin 9')
-                        self.data.append([9, self.snow_paths[p].frames[l], self.snow_paths[p].x_pos[l], self.snow_paths[p].y_pos[l], self.snow_paths[p].x_vel_smoothed[l], self.snow_paths[p].y_vel_smoothed[l]])
-        
-        self.df = pd.DataFrame(self.data, columns = ['bin#', 'frame', 'x_pos', 'y_pos', 'x_vel_smoothed', 'y_vel_smoothed'])
-        # Calculate Averages
-        self.x_avgs = self.df.groupby('bin#').x_vel_smoothed.agg(['count', 'mean', 'std']).reset_index()
-        self.y_avgs = self.df.groupby('bin#').y_vel_smoothed.agg(['count', 'mean', 'std']).reset_index()
-        
-        # Plot
-        fig, (ax1, ax2) = plt.subplots(2)
-        ax1.bar(self.x_avgs['bin#'], self.x_avgs['mean'], yerr=self.x_avgs['std'], align='center', alpha=0.5, ecolor='black', capsize=10)
-        #ax1.set_xlabel('grid number')
-        ax1.set_ylabel('mean x-velocity w/ SD')
-        ax1.set_title('Start Frame: '+str(self.start_frame)+' - End Frame: '+str(self.end_frame))
-        ax2.bar(self.y_avgs['bin#'], self.y_avgs['mean'], yerr=self.y_avgs['std'], align='center', alpha=0.5, ecolor='black', capsize=10)
-        ax2.set_xlabel('grid number')
-        ax2.set_ylabel('mean y-velocity w/ SD')
-        plt.show()
 
     def plot_motion(self, plot_flow_motion=False, plot_flow_position=False):
         # plot zooplankton MOTION

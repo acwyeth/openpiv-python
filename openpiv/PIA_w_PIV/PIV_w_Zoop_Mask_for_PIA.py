@@ -68,7 +68,7 @@ min_area = 30
 max_area = 5000
 
 # PIV parameters ------
-frm_rt = (1/20)     # 20 frames per second
+frm_rt = (1/1)     # 20 frames per second
 
 # NON extended search (srch==window)
 # 5 x 4 grid -- currently the best I think 
@@ -141,7 +141,7 @@ class ROI():
                     print('ERROR: Failed to load ROI file %s' % self.ROIfile)
 
 class ZoopMask():
-    """A class to ... mask a single frame?
+    """A class to black out zooplankton from a given frame (don't want swimmers included in PIV analysis)
     """
     def __init__(self, frame_path=None, ROIlist=[], frame_image=None, binary_image=None, contours=[]):
         self.frame_path = frame_path
@@ -249,7 +249,7 @@ class PIV():
             #u, v, sig2noise = pyprocess.extended_search_area_piv( frame_a, frame_b, \
             #    window_size=(wndw*fact), overlap=(ovrlp*fact), dt=0.02, search_area_size=(srch*fact), sig2noise_method='peak2peak' )
             
-            # No longer using the extended search functionality, turned normalization back on to account for this change
+            # 2) No longer using the extended search functionality, turned normalization back on to account for this change
             u, v, sig2noise = pyprocess.extended_search_area_piv( frame_a, frame_b, \
                 window_size=wndw, overlap=ovrlp, dt=frm_rt, search_area_size=None, sig2noise_method='peak2peak', normalized_correlation=True )
             if verbose == True:
@@ -284,13 +284,13 @@ class PIV():
             # Converts coordinate systems from/to the image based / physical based 
             x, y, u, v = tools.transform_coordinates(x, y, u, v)
             
-            # 7) Scales all values -- important for displaying
+            # 7) Scales all values -- important for displaying -- not applying right now 
                 # Need to think about: if I dont scale it the arrows are larger than the frame -- does this mean my displacements are way too large?
             #x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 96.52 ) 
             #x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor = 100 )  
-            #if verbose == True:
-            #    print('ROUND 4: Scaled (for plotting)')
-            #    print(u,v)
+            # if verbose == True:
+            #     print('ROUND 4: Scaled (for plotting)')
+            #     print(u,v)
             
             # 8) Save output file
             if save == True:

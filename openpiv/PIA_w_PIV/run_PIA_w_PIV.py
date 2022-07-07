@@ -1,21 +1,16 @@
 
-# Seperating out lines of code that run/test in_situ_analysis modul
+# Seperating out lines of code that run/test in_situ_analysis module
 
 # ==================================================================================
 # Notes from Anaylsis:
-    # Overview of motion in x/y directions (for example vid):
-        # Visually - flow is strong in the x direction and minimal in the y direction
-        # Flowfield plot - reflects this. large x values, small y values
-        # Visually there are three copepods clearly swimming  in the 100 frames -- I would say equally in the x and y direction
-        # Motion plot (zoop-flow) - almost no x motion (with the excetion of one zoop) and a range of y motion
 
 
 # ADD A PARAMETER CALLED START FRAME 
     # If I can't get T3D to read in starting frame number then add a parameter I define in this script so I dont have to tweak and internal line of code in isa everytime I run it 
 
 # Note for Amy:
-# 1) cd /home/dg/Wyeth2/GIT_in_situ_motion -- this is the step I was missing
-# 2) python3.6
+# 1) cd dg/data2/dg/Wyeth2/GIT_repos_insitu/openpiv-python
+# 2) python3.8
 # 3) run code below
 
 from importlib import reload
@@ -27,42 +22,54 @@ import numpy as np
 from statistics import mean, median
 import pandas as pd
 import math
-#from scipy.interpolate import UnivariateSpline, LSQUnivariateSpline
 
 # ----------
-#import in_situ_analysis as isa
-#import in_situ_analysis_NEWSPLINE as is2
 
 sys.path.insert(0, '/home/dg/Wyeth2/GIT_repos_insitu/openpiv-python/openpiv/PIA_w_PIV')
 import in_situ_analysis_PIVintegration as is3
 
-import PIV_w_Zoop_Mask_for_PIA as piv
-
 reload(is3)
-reload(piv)
+
+#import PIV_w_Zoop_Mask_for_PIA as piv
+#reload(piv)
 
 # ------------
+
 np.set_printoptions(suppress=True, linewidth=1000) 
 np.set_printoptions(suppress=True, linewidth=75) 
 pd.set_option('display.max_rows', 1000)
 
 # ==================================================================================
-test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/zoop_30-5000.dat', snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test', class_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/ROI_classified/predictions.csv')
-test.remove_flow()
-# ran without errors!! Just really slow for one short video
-test.zoop_paths[1].x_vel_smoothed
-test.zoop_paths[1].x_snow_flow      # last index is zero right now - need think about how to handle the last frame
-test.zoop_paths[1].x_motion
 
-test.zoop_paths[1].frames[0]
+# 100 frame motion test 
+test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/zoop_30-5000.dat', 
+    snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test',
+    class_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/ROI_classified/predictions.csv',
+    CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
 
-flow_test = is3.Flowfield_PIV(frame_num=1, directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test', x_pos=235, y_pos=318)
-flow_test.frame_a
+# --
+test.remove_flow()                  # run time is fairly slow 
+test.assign_classification()
+test.assign_chemistry()
 
-flow_test.get_flow()
-flow_test.point_flow
+# --
+test.zoop_paths[0].x_motion
+test.zoop_paths[0].classification
 
-flow = piv.PIV(frame1=flow_test.frame_a, frame2=flow_test.frame_b, save_setting=False, display_setting=True, verbosity_setting=False)
+test.profile                        # need to double check -- dont match old outputs but those are also subject to error
+test.nearest_earlier_cast           
+test.oxygen_mgL_avg
+test.depth_avg
+
+
+
+
+
+
+
+
+
+
 
 
 # ==================================================================================
