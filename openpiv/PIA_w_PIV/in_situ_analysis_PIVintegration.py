@@ -320,13 +320,13 @@ class Analysis():
         for p in self.zoop_paths:
             for l in range(len(p.frames)):
                 # Save frame, x, and y position of that localization
-                frame = (p.frames[l]-1)
-                #frame = (p.frames[l]+499)                                             # TEMP FIX: for motion test video
-                #frame = (p.frames[l]+599) 
+                #self.frame = (p.frames[l]-1)
+                #self.frame = (p.frames[l]+499)                                             # TEMP FIX: for motion test video
+                self.frame = (p.frames[l]+199) 
                 x_pos = p.x_pos[l]
                 y_pos = p.y_pos[l]
                 # Pull ROI infomration from frame number
-                rois = self.np_class_rows[(self.np_class_rows[:,-3]) == frame, :]   # save lines of np_class_rows at correct frame
+                rois = self.np_class_rows[(self.np_class_rows[:,-3]) == self.frame, :]   # save lines of np_class_rows at correct frame
                 roi = rois[(rois[:,-2] < (x_pos+2)) & (rois[:,-2] > (x_pos-2)) & (rois[:,-1] < (y_pos+2)) & (rois[:,-1] > (y_pos-2)),:]         # if the center of the ROI is within sq pixels of the localization -- match it
                 if len(roi) == 1:
                     p.classification[l] = roi[:,4][0]
