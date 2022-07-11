@@ -65,7 +65,7 @@ class CTD():
         if CTDsmpl_int is not None:
             self.CTDsmpl_int=CTDsmpl_int
         self.CTDpath=os.path.join(self.CTDdir,self.CTDfile)
-        print('Loading CTD data from %s' % self.CTDpath)
+        #print('Loading CTD data from %s' % self.CTDpath)
         self.headernames = ['Scan', 'Pressure', 'Conductivity', 'Temp', 'V0', 'V1', 'V2', 'V3', 'V4','V5', 'O2-V', 'Fluorometer', 'NO3', 'Depth', 'Salinity', 'Sigma-T', 'O2-mg/l','O2-umol/kg', 'O2-sat', 'PAR', 'Turbidity']
         self.ctd_data = pd.read_csv(self.CTDpath, delim_whitespace=True, skiprows=46, header=0, names=self.headernames,na_values='-555')
         
@@ -75,20 +75,20 @@ class CTD():
             for i in range(0, max_header_lines):
                 hdr=next(r)
                 if hdr[0]==meta_keyword:
-                    print('metadata found in line %d' % i)
+                    #print('metadata found in line %d' % i)
                     self.metadata = hdr
                     break
-        print('metadata are :')
-        print(self.metadata)
+        #print('metadata are :')
+        #print(self.metadata)
         
         # Parse data series start time from metadata
         self.datestring = str(self.metadata[4]) + '-' + str(self.metadata[5]) + '-' + str(self.metadata[6]) + \
             ' ' + str(self.metadata[7])
-        print('datastring = ',self.datestring)
+        #print('datastring = ',self.datestring)
         self.ctd_start_date = pd.Timestamp(self.datestring, tz='US/Pacific')
-        print('ctd_start_date = ',self.ctd_start_date)
+        #print('ctd_start_date = ',self.ctd_start_date)
         self.cast_num = int(self.metadata[3])
-        print('cast_num = ',self.cast_num)
+        #print('cast_num = ',self.cast_num)
 
         # Parse parking depths from first readings
         self.parking_depth = mean(self.ctd_data.Depth[0:100])
