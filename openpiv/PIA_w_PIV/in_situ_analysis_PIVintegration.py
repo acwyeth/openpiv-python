@@ -14,6 +14,12 @@
 # Write a method that saves an output file (for each zooplankton swimming path: timestamp, path#, start_frame, #frames, x_motion, y_motion, classification)
 
 # ==========================================================
+
+# clear the envionment -- test -- could be a disaster
+#import sys
+#sys.modules[__name__].__dict__.clear()
+#%reset -f
+
 # packages for this script
 import scipy.io as sio
 from statistics import mean, median
@@ -285,6 +291,7 @@ class Analysis():
     def assign_classification(self):
         '''method to match/assign classifcations to each localization in zoop_paths
         '''
+        
         # Streamline Classication Data
         for c in self.class_rows:
             # Pull filename 
@@ -315,14 +322,19 @@ class Analysis():
             c.append(roi_cnt[1])
         # Convert to numpy array
         self.np_class_rows = np.array(self.class_rows, dtype=object)
-
+        
+        # Save first frame number (from ROIs)
+        self.roi_frame_num = self.class_rows[0][10]
+        #print(self.roi_frame_num)
+        
         # Match ROI to Classification Data
         for p in self.zoop_paths:
             for l in range(len(p.frames)):
                 # Save frame, x, and y position of that localization
+                self.frame = (p.frames[l] + (int(self.roi_frame_num)-1))
                 #self.frame = (p.frames[l]-1)
                 #self.frame = (p.frames[l]+499)                                             # TEMP FIX: for motion test video
-                self.frame = (p.frames[l]+199) 
+                #self.frame = (p.frames[l]+199) 
                 x_pos = p.x_pos[l]
                 y_pos = p.y_pos[l]
                 # Pull ROI infomration from frame number
