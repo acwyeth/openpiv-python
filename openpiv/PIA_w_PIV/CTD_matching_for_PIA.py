@@ -142,7 +142,7 @@ class Analysis():
             self.ctd_files.append(file)
             #self.ctd = CTD(CTDdir=self.CTDdir, CTDfile=file)
             self.all_ctd_data.append(CTD(CTDdir=self.CTDdir, CTDfile=file))
-        print('added {} ctd files'.format(len(self.ctd_files)))
+        print('found {} ctd files'.format(len(self.ctd_files)))
 
         # extract datenum from video file name
         dt = datetime.utcfromtimestamp(self.profile) 

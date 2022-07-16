@@ -41,6 +41,9 @@ import PIV_w_Zoop_Mask_for_PIA as piv
 # paskages for CTD matching
 import CTD_matching_for_PIA as ctd
 
+import warnings
+warnings.simplefilter("ignore")
+
 # numpy defaults
 np.set_printoptions(suppress=True, linewidth=100)
 
@@ -205,20 +208,56 @@ class Flowfield_PIV():
         self.x_pos = x_pos
         self.y_pos = y_pos
         
-        # When frames go through Tracker3D all frames are re-numbered starting at 1
-        frame_ind = self.frame_num - 1
+        # ---------
+        # OLD -- didnt work when a frame was missing from the directory (actually missing, not corrupted)
+        # # When frames go through Tracker3D all frames are re-numbered starting at 1
+        # frame_ind = self.frame_num - 1
         
-        # Find frames 
+        # # Find frames 
+        # tif_list=[f for f in os.listdir(self.directory) if  \
+        #             (os.path.isfile(os.path.join(self.directory, f)) and f.endswith('.tif'))]
+        # tif_list.sort()
+        # self.frame_a = os.path.join(directory, tif_list[frame_ind])
+        # self.frame_b = os.path.join(directory, tif_list[frame_ind+1])
+        # ---------
+
+        # When frames go through Tracker3D all frames are re-numbered starting at 1
+            # but the first tif image can start at a range of values
+            # current_roi_frame = curent_dat_frame + first_roi_frame - 1
+        # Store for ROI frame number
         tif_list=[f for f in os.listdir(self.directory) if  \
                     (os.path.isfile(os.path.join(self.directory, f)) and f.endswith('.tif'))]
         tif_list.sort()
-        self.frame_a = os.path.join(directory, tif_list[frame_ind])
-        self.frame_b = os.path.join(directory, tif_list[frame_ind+1])
+        first_roi_frame = tif_list[0][-10:-4]
+        roi_frame_a = self.frame_num + int(first_roi_frame) - 1
+        roi_frame_b = self.frame_num  + int(first_roi_frame)
+        #print(roi_frame_a)
+        #print(roi_frame_b)
         
-        self.get_flow()
-    
+        roi_image_a = [f for f in os.listdir(self.directory) if  \
+                    (os.path.isfile(os.path.join(self.directory, f)) and f.endswith(str("%06d"%(roi_frame_a))+'.tif'))]
+        roi_image_b = [f for f in os.listdir(self.directory) if  \
+                    (os.path.isfile(os.path.join(self.directory, f)) and f.endswith(str("%06d"%(roi_frame_b))+'.tif'))]
+        #print(roi_image_a)
+        #print(roi_image_b)
+        image_a_len = len(roi_image_a)
+        image_b_len = len(roi_image_b)
+        
+        if ((image_a_len>0) and (image_b_len>0)):
+            self.frame_a = os.path.join(self.directory, roi_image_a[0])
+            self.frame_b = os.path.join(self.directory, roi_image_b[0])
+            #print(self.frame_a)
+            #print(self.frame_b)
+            self.get_flow()
+        else:
+            print("Broken frame pair: "+str(roi_image_a)+", "+str(roi_image_b))
+            self.point_x_flow = -999                                        # this is a placeholder -- I think ideally I want this to be a NaN and then smooth over missing values
+            self.point_y_flow = -999
+            self.point_flow = [self.point_x_flow, self.point_y_flow]
+        
+        #print(self.point_flow)
+
     def get_flow(self):
-        #try:
         self.frame_flow = piv.PIV(frame1=self.frame_a, frame2=self.frame_b, save_setting=False, display_setting=False, verbosity_setting=False)
         
         # find closest x and y coordinates
@@ -231,9 +270,6 @@ class Flowfield_PIV():
         self.point_x_flow = self.frame_flow.output[2, pos_ind]
         self.point_y_flow = self.frame_flow.output[3, pos_ind]
         self.point_flow = [self.point_x_flow, self.point_y_flow]
-        
-        # except:
-        #    print('frame_a and/or frame_b corrupt')
 
 class Analysis():
     """ Class to analyze pre-processed flow and swimming paths
@@ -276,7 +312,8 @@ class Analysis():
     
     def remove_flow(self, plot_flow_motion=True):
         for p in self.zoop_paths:
-            for l in range(len(p.frames)-1):
+            #for l in range(len(p.frames)-1):       # this would avoid the broken frame pair at the last frame if I wanted that
+            for l in range(len(p.frames)):
             #self.flowfield.get_flow(p.frames)
                 self.flowfield = Flowfield_PIV(p.frames[l], self.snow_directory, p.x_pos[l], p.y_pos[l])
                 
@@ -331,21 +368,21 @@ class Analysis():
         for p in self.zoop_paths:
             for l in range(len(p.frames)):
                 # Save frame, x, and y position of that localization
-                self.frame = (p.frames[l] + (int(self.roi_frame_num)-1))
+                self.frame = (p.frames[l] + (int(self.roi_frame_num)-1))                    # Need to line up frames numbers - .dat files always start at 1, ROI frames can start anywhere (usually 0)
                 #self.frame = (p.frames[l]-1)
-                #self.frame = (p.frames[l]+499)                                             # TEMP FIX: for motion test video
+                #self.frame = (p.frames[l]+499)
                 #self.frame = (p.frames[l]+199) 
                 x_pos = p.x_pos[l]
                 y_pos = p.y_pos[l]
                 # Pull ROI infomration from frame number
-                rois = self.np_class_rows[(self.np_class_rows[:,-3]) == self.frame, :]   # save lines of np_class_rows at correct frame
-                roi = rois[(rois[:,-2] < (x_pos+2)) & (rois[:,-2] > (x_pos-2)) & (rois[:,-1] < (y_pos+2)) & (rois[:,-1] > (y_pos-2)),:]         # if the center of the ROI is within sq pixels of the localization -- match it
-                if len(roi) == 1:
-                    p.classification[l] = roi[:,4][0]
-                    print('SUCCESS: Match found')
-                if len(roi) == 0:
+                self.rois = self.np_class_rows[(self.np_class_rows[:,-3]) == self.frame, :]   # save lines of np_class_rows at correct frame
+                self.roi = self.rois[(self.rois[:,-2] < (x_pos+2)) & (self.rois[:,-2] > (x_pos-2)) & (self.rois[:,-1] < (y_pos+2)) & (self.rois[:,-1] > (y_pos-2)),:]         # if the center of the ROI is within sq pixels of the localization -- match it
+                if len(self.roi) == 1:
+                    p.classification[l] = self.roi[:,4][0]
+                    #print('SUCCESS: Match found')              # only printing errors right now to reduce output
+                if len(self.roi) == 0:
                     print('ERROR: No match found')
-                if len(roi) > 1:
+                if len(self.roi) > 1:
                     print('ERROR: more than more 1 ROI found')
 
     def assign_chemistry(self):
