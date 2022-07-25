@@ -49,7 +49,8 @@ test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_trackin
 
 test.assign_classification()
 test.assign_chemistry()             # turn off some of the output
-test.remove_flow()                  # run time is fairly slow , get a RuntimeWarning
+test.remove_flow()                  # run time is fairly slow
+test.convert_to_physical()
 
 test.profile                        
 test.nearest_earlier_cast           
@@ -78,12 +79,10 @@ test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_trackin
     CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
 
 test.assign_classification()        
-# I get this error when I dont restart the ptyon session ? Must not be clearing something? 
-    #  File "/home/dg/Wyeth2/GIT_repos_insitu/openpiv-python/openpiv/PIA_w_PIV/in_situ_analysis_PIVintegration.py", line 329, in assign_classification
-    #    rois = self.np_class_rows[(self.np_class_rows[:,-3]) == frame, :]   # save lines of np_class_rows at correct frame
-    #IndexError: too many indices for array: array is 1-dimensional, but 2 were indexed 
 test.assign_chemistry()
 test.remove_flow()
+test.convert_to_physical()
+
 
 test.profile                        
 test.zoop_paths[0].x_motion

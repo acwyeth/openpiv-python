@@ -32,6 +32,7 @@ import math
 import pandas as pd
 import os
 import sys
+import datetime
 
 # packages for PIV script
 #sys.path.insert(0, '/home/dg/Wyeth2/GIT_repos_insitu/openpiv-python/openpiv')
@@ -77,10 +78,14 @@ class Path():
 
         # create empty arrays of the correct size associated with each path that can be filled in downstream
             # populated in Analysis class 
-        self.x_snow_flow = np.zeros(self.x_pos.size)
-        self.y_snow_flow = np.zeros(self.y_pos.size)
+        self.x_flow_raw = np.zeros(self.x_pos.size)
+        self.y_flow_raw = np.zeros(self.y_pos.size)
+        self.x_flow_smoothed = np.zeros(self.x_pos.size)
+        self.y_flow_smoothed = np.zeros(self.y_pos.size)
         self.x_motion = np.zeros(self.x_pos.size)
         self.y_motion = np.zeros(self.y_pos.size)
+        self.x_motion_phys = np.zeros(self.x_pos.size)
+        self.y_motion_phys = np.zeros(self.y_pos.size)
         self.classification = np.empty(self.x_pos.size, dtype="object")
         self.classification[:] = 'None'
         
@@ -208,19 +213,6 @@ class Flowfield_PIV():
         self.x_pos = x_pos
         self.y_pos = y_pos
         
-        # ---------
-        # OLD -- didnt work when a frame was missing from the directory (actually missing, not corrupted)
-        # # When frames go through Tracker3D all frames are re-numbered starting at 1
-        # frame_ind = self.frame_num - 1
-        
-        # # Find frames 
-        # tif_list=[f for f in os.listdir(self.directory) if  \
-        #             (os.path.isfile(os.path.join(self.directory, f)) and f.endswith('.tif'))]
-        # tif_list.sort()
-        # self.frame_a = os.path.join(directory, tif_list[frame_ind])
-        # self.frame_b = os.path.join(directory, tif_list[frame_ind+1])
-        # ---------
-
         # When frames go through Tracker3D all frames are re-numbered starting at 1
             # but the first tif image can start at a range of values
             # current_roi_frame = curent_dat_frame + first_roi_frame - 1
@@ -243,19 +235,24 @@ class Flowfield_PIV():
         image_a_len = len(roi_image_a)
         image_b_len = len(roi_image_b)
         
-        if ((image_a_len>0) and (image_b_len>0)):
-            self.frame_a = os.path.join(self.directory, roi_image_a[0])
-            self.frame_b = os.path.join(self.directory, roi_image_b[0])
-            #print(self.frame_a)
-            #print(self.frame_b)
-            self.get_flow()
+        if ((image_a_len>0) and (image_b_len>0)):                               # handles missing frames
+            try:                                                                # handles corrupted frames 
+                self.frame_a = os.path.join(self.directory, roi_image_a[0])
+                self.frame_b = os.path.join(self.directory, roi_image_b[0])
+                #print(self.frame_a)
+                #print(self.frame_b)
+                self.get_flow()
+            except:
+                print("Broken frame pair: "+str(roi_image_a)+", "+str(roi_image_b))
+                self.point_x_flow = float('NaN')
+                self.point_y_flow = float('NaN')
+                self.point_flow = [self.point_x_flow, self.point_y_flow]
         else:
             print("Broken frame pair: "+str(roi_image_a)+", "+str(roi_image_b))
-            self.point_x_flow = -999                                        # this is a placeholder -- I think ideally I want this to be a NaN and then smooth over missing values
-            self.point_y_flow = -999
+            self.point_x_flow = float('NaN')
+            self.point_y_flow = float('NaN')
             self.point_flow = [self.point_x_flow, self.point_y_flow]
-        
-        #print(self.point_flow)
+
 
     def get_flow(self):
         self.frame_flow = piv.PIV(frame1=self.frame_a, frame2=self.frame_b, save_setting=False, display_setting=False, verbosity_setting=False)
@@ -314,16 +311,41 @@ class Analysis():
         for p in self.zoop_paths:
             #for l in range(len(p.frames)-1):       # this would avoid the broken frame pair at the last frame if I wanted that
             for l in range(len(p.frames)):
-            #self.flowfield.get_flow(p.frames)
+                
+                # get PIV flow 
                 self.flowfield = Flowfield_PIV(p.frames[l], self.snow_directory, p.x_pos[l], p.y_pos[l])
+                # Unsmoothed PIV flow
+                p.x_flow_raw[l] = self.flowfield.point_x_flow             # this is a little confusing and maybe needs a better name because it stored in zoop_paths, but is the SNOW flow field at the time of each zoop path
+                p.y_flow_raw[l] = self.flowfield.point_y_flow
                 
-                p.x_snow_flow[l] = self.flowfield.point_x_flow             # this is a little confusing and maybe needs a better name because it stored in zoop_paths, but is the SNOW flow field at the time of each zoop path
-                p.y_snow_flow[l] = self.flowfield.point_y_flow
-                #print('Flow=', self.flowfield.point_x_flow)
-                
-                # Right now subtracting a non-smoothed flow from a smoothing swimming path -- doesnt feel right but getting it to work
-                p.x_motion = (p.x_vel_smoothed - p.x_snow_flow)
-                p.y_motion = (p.y_vel_smoothed - p.y_snow_flow)
+            # smooth PIV flow
+            # generate internal knots
+            flow_knts = []
+            flow_knt_smooth = 3
+            flow_num_knts = int((p.frames[-1] - p.frames[0])/flow_knt_smooth)
+            flow_knt_space = (p.frames[-1] - p.frames[0])/(flow_num_knts+1)
+            for k in range(flow_num_knts):
+                flow_knts.append(flow_knt_space*(k+1) + p.frames[0])
+            #print(flow_knts)
+            
+            # assign zero weight to nan values (https://gemfury.com/alkaline-ml/python:scipy/-/content/interpolate/fitpack2.py)
+            wx = np.isnan(p.x_flow_raw)
+            p.x_flow_raw[wx] = 0.
+            wy = np.isnan(p.y_flow_raw)
+            p.y_flow_raw[wy] = 0.
+            
+            # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.UnivariateSpline.html
+            p.x_flow_spline = LSQUnivariateSpline(p.frames, p.x_flow_raw, flow_knts, w=~wx, k=1)       # calculate spline for observed flow
+            p.x_flow_smoothed = p.x_flow_spline.__call__(p.frames)                                         # flow velocity in smoothed trajectory
+            p.y_flow_spline = LSQUnivariateSpline(p.frames, p.y_flow_raw, flow_knts, w=~wy, k=1)
+            p.y_flow_smoothed = p.y_flow_spline.__call__(p.frames)
+            
+            #p.x_snow_flow = p.x_flow_smoothed
+            #p.y_snow_flow = p.y_flow_smoothed
+            
+            # calculate motion
+            p.x_motion = (p.x_vel_smoothed - p.x_flow_smoothed)
+            p.y_motion = (p.y_vel_smoothed - p.y_flow_smoothed)
     
     def assign_classification(self):
         '''method to match/assign classifcations to each localization in zoop_paths
@@ -405,16 +427,71 @@ class Analysis():
         self.depth_avg = CTD_chemistry.depth_avg
         self.salinity_avg = CTD_chemistry.salinity_avg
         self.oxygen_mgL_avg = CTD_chemistry.oxygen_mgL_avg
+
+    def convert_to_physical(self):
+        # convert motion from pixels/frame to mm/sec
+        # Frame is 2600 x 3504 (actually 650 x 876 but same ratio) pixels or ~57.2mm x 77.1mm
+        # looks like 10 or 20 frames/sec with variation.. 
         
-    #def write_zoop_file(self):
-        # video ID (datenum)
-        # path number
-        # start frame
-        # number of points
-        # avg x motion
-        # avg y motion
-        # most common (?) classification
-        # classification flag (something to indicate if <75% of classifications matched or something)
+        # Determine the avg frame rate over the whole video
+        # Isolate 16 digit unix timestamps (microseconds)
+        tif_list=[f for f in os.listdir(self.snow_directory) if  \
+                    (os.path.isfile(os.path.join(self.snow_directory, f)) and f.endswith('.tif'))]
+        tif_list.sort()
+        
+        if len(tif_list) > 0:
+            
+            # Store unix timestamp from image filename
+            unix_list = []
+            frame_nums = []
+            for frm_file in tif_list:  
+                line = str(frm_file)
+                time_tag = 'UW-'
+                time_tag_index = line.find(time_tag)+3
+                time_len = 16
+                unix = line[(time_tag_index):(time_tag_index+time_len)]
+                unix_list.append(unix)
+                
+                frame_tag = '.tif'
+                frame_tag_ind = line.find(frame_tag)
+                frame_len= 6
+                frame_name = line[(frame_tag_ind-frame_len):frame_tag_ind]
+                frame_nums.append(int(frame_name))
+            
+            # Convert to datetime (I might not need this step, but was a helpful visual check)
+            datetime_list = []
+            for time in unix_list:
+                unix_list.sort()
+                timestamp = (pd.to_datetime(int(time),unit='us')) 
+                #print(datetime)
+                datetime_list.append(timestamp)
+            
+            # Calculate time detla between frames
+            deltas = [x - datetime_list[i - 1] for i, x in enumerate(datetime_list)][1:]
+            
+            # Convert from Timedelta object to seconds
+            delta_time = []
+            for delta in deltas:
+                delta_time.append(delta.total_seconds())
+            
+            # Calculate different between frame numbers
+            frame_diff = [x - frame_nums[i - 1] for i, x in enumerate(frame_nums)][1:]
+            
+            # Correct time delta for the number of frames ellapsed
+            delta_time_corrected = np.array(delta_time) / np.array(frame_diff)
+            
+            # Calculate the mean and sd over the video
+            self.avg_dt = sum(delta_time_corrected) / len(delta_time_corrected)
+            self.sd_dt = np.std(delta_time_corrected)
+        
+        for p in self.zoop_paths:
+            # space conversion
+            p.x_motion_phys = p.x_motion * (77.1 / 876)            # pixels to mm 
+            p.y_motion_phys = p.y_motion * (57.2 / 650)            # pixels to mm 
+            
+            # time conversion 
+            p.x_motion_phys = p.x_motion_phys * (1 / self.avg_dt)           # frames to sec (frame rate = 1/dt)
+            p.y_motion_phys = p.y_motion_phys * (1 / self.avg_dt)           # frames to sec (frame rate = 1/dt)
 
     def plot_motion(self, plot_flow_motion=False, plot_flow_position=False):
         # plot zooplankton MOTION
