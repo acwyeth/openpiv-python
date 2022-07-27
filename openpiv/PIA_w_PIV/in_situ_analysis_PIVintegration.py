@@ -88,6 +88,7 @@ class Path():
         self.y_motion_phys = np.zeros(self.y_pos.size)
         self.classification = np.empty(self.x_pos.size, dtype="object")
         self.classification[:] = 'None'
+        self.delta_time_corrected = np.zeros(self.x_pos.size)
         
         if verbose:
             print('frames =',self.frames)
@@ -206,7 +207,9 @@ class Flowfield():
         self.point_y_flow = self.y_vel_temporal_spline.__call__(frame)
         self.point_flow = [self.point_x_flow, self.point_y_flow]
 
-class Flowfield_PIV():
+class Flowfield_PIV_Point():
+    """A class to use PIV anaylsis to generate a flowfield at a specified frame pair
+    """
     def __init__(self, frame_num=None, directory=None, x_pos=None, y_pos=None):
         self.frame_num = frame_num
         self.directory = directory
@@ -253,7 +256,6 @@ class Flowfield_PIV():
             self.point_y_flow = float('NaN')
             self.point_flow = [self.point_x_flow, self.point_y_flow]
 
-
     def get_flow(self):
         self.frame_flow = piv.PIV(frame1=self.frame_a, frame2=self.frame_b, save_setting=False, display_setting=False, verbosity_setting=False)
         
@@ -267,6 +269,114 @@ class Flowfield_PIV():
         self.point_x_flow = self.frame_flow.output[2, pos_ind]
         self.point_y_flow = self.frame_flow.output[3, pos_ind]
         self.point_flow = [self.point_x_flow, self.point_y_flow]
+
+class Flowfield_PIV_Full():
+    def __init__(self, frame_num=None, directory=None, x_pos=None, y_pos=None):
+        """A class to use PIV analysis to create a 3-D flowfield object for an entire video
+        """
+        # Zoop_path parameters for get_flow
+        self.frame_num = frame_num
+        self.directory = directory
+        self.x_pos = x_pos
+        self.y_pos = y_pos
+        
+        # making a dictiionary and an array right now bc I think Ill need both
+        self.flowfield_full_dic = {}
+        self.flowfield_full_np = []
+        
+        # create a list of all the frames in the video
+        self.tif_list=[f for f in os.listdir(self.directory) if  \
+                    (os.path.isfile(os.path.join(self.directory, f)) and f.endswith('.tif'))]
+        self.tif_list.sort()
+        first_roi_frame = self.tif_list[0][-10:-4]
+        
+        # for each frame pair calculate and store the flowfield 
+        for f in range(len(self.tif_list)-1):
+            
+            # create an empty array 
+            self.flow_layer = np.empty((5,20))
+            
+            roi_frame_a = int(first_roi_frame) + f 
+            roi_frame_b = int(first_roi_frame) + f + 1
+            #print(roi_frame_a)
+            #print(roi_frame_b)
+            
+            roi_image_a = [f for f in os.listdir(self.directory) if  \
+                        (os.path.isfile(os.path.join(self.directory, f)) and f.endswith(str("%06d"%(roi_frame_a))+'.tif'))]
+            roi_image_b = [f for f in os.listdir(self.directory) if  \
+                        (os.path.isfile(os.path.join(self.directory, f)) and f.endswith(str("%06d"%(roi_frame_b))+'.tif'))]
+            #print(roi_image_a)
+            #print(roi_image_b)
+            
+            # A check that both images exist
+            image_a_len = len(roi_image_a)
+            image_b_len = len(roi_image_b)
+            
+            if ((image_a_len>0) and (image_b_len>0)):                               # handles missing frames
+                try:                                                                # handles corrupted frames 
+                    self.frame_a = os.path.join(self.directory, roi_image_a[0])
+                    self.frame_b = os.path.join(self.directory, roi_image_b[0])
+                    #print(self.frame_a)
+                    #print(self.frame_b)
+                    self.frame_flow = piv.PIV(frame1=self.frame_a, frame2=self.frame_b, save_setting=False, display_setting=False, verbosity_setting=False)
+                    self.flow_layer = self.frame_flow.output     # this is a 20 (5x4 grid) x 5 (x, y, u, v, mask) array
+                except:
+                    print("Broken frame pair: "+str(roi_image_a)+", "+str(roi_image_b))
+                    self.flow_layer.fill(np.NaN)
+            else:
+                print("Broken frame pair: "+str(roi_image_a)+", "+str(roi_image_b))
+                self.flow_layer.fill(np.NaN)
+            
+            self.flowfield_full_dic[roi_frame_a] = self.flow_layer
+            self.flowfield_full_np.append(self.flow_layer)
+            
+        #add one layer of NaNs for the last frame
+        self.flowfield_full_dic[roi_frame_b] = np.full((5,20),np.nan)
+        self.flowfield_full_np.append(np.full((5,20),np.nan))
+        #convert to a 3D numpy array
+        self.flowfield_full_np = np.array(self.flowfield_full_np)       # shape (# frames, 5(x,y,u,v,mask), 20(5x4 grid))
+    
+    def smooth_flow(self):
+        # smooth in 2D -- also need to ignore a good number of NaNs
+        self.u_vels = self.flowfield_full_np[:,2,:].reshape(len(self.tif_list),4,5)
+        self.v_vels = self.flowfield_full_np[:,3,:].reshape(len(self.tif_list),4,5)
+        
+        # TEMPORAL SMOOTHING
+        # this is just a placeholder for the real frame number, which I don't think matters too much here
+        frames = list(range(self.u_vels.shape[0]))
+        
+        #repeat for each of the 20 grids
+        for i in range(self.u_vels.shape[1]):
+            for j in range(self.u_vels.shape[2]):
+                u_grid_thru_time = self.u_vels[:,i,j]
+                v_grid_thru_time = self.v_vels[:,i,j]
+                
+                flow_knts = []
+                flow_knt_smooth = 3
+                flow_num_knts = int((frames[-1] - frames[0])/flow_knt_smooth)
+                flow_knt_space = (frames[-1] - frames[0])/(flow_num_knts+1)
+                for k in range(flow_num_knts):
+                    flow_knts.append(flow_knt_space*(k+1) + frames[0])
+                #print(flow_knts)
+                
+                # assign zero weight to nan values (https://gemfury.com/alkaline-ml/python:scipy/-/content/interpolate/fitpack2.py)
+                wu = np.isnan(u_grid_thru_time)
+                u_grid_thru_time[wu] = 0.
+                wv = np.isnan(v_grid_thru_time)
+                v_grid_thru_time[wv] = 0.
+                
+                # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.UnivariateSpline.html
+                u_flow_spline = LSQUnivariateSpline(frames, u_grid_thru_time, flow_knts, w=~wu, k=1)       # calculate spline for observed flow
+                u_flow_smoothed = u_flow_spline.__call__(frames)
+                print(u_flow_smoothed)                                         # flow velocity in smoothed trajectory
+                v_flow_spline = LSQUnivariateSpline(frames, v_grid_thru_time, flow_knts, w=~wv, k=1)
+                v_flow_smoothed = v_flow_spline.__call__(frames)
+                print(v_flow_smoothed)
+                
+                # need to think about how I want to store/save smoothed vectors 
+    
+    #def get_flow(self):
+        # use the dictionary -- use the key to find the frame -- find the nearets x/y using old code
 
 class Analysis():
     """ Class to analyze pre-processed flow and swimming paths
@@ -431,16 +541,13 @@ class Analysis():
     def convert_to_physical(self):
         # convert motion from pixels/frame to mm/sec
         # Frame is 2600 x 3504 (actually 650 x 876 but same ratio) pixels or ~57.2mm x 77.1mm
-        # looks like 10 or 20 frames/sec with variation.. 
         
-        # Determine the avg frame rate over the whole video
+        # Generate a list of timestamps and frame numbers from the original directory of tif images
         # Isolate 16 digit unix timestamps (microseconds)
         tif_list=[f for f in os.listdir(self.snow_directory) if  \
                     (os.path.isfile(os.path.join(self.snow_directory, f)) and f.endswith('.tif'))]
         tif_list.sort()
-        
         if len(tif_list) > 0:
-            
             # Store unix timestamp from image filename
             unix_list = []
             frame_nums = []
@@ -451,47 +558,48 @@ class Analysis():
                 time_len = 16
                 unix = line[(time_tag_index):(time_tag_index+time_len)]
                 unix_list.append(unix)
-                
+            # Store frame number from image fileman
                 frame_tag = '.tif'
                 frame_tag_ind = line.find(frame_tag)
                 frame_len= 6
                 frame_name = line[(frame_tag_ind-frame_len):frame_tag_ind]
                 frame_nums.append(int(frame_name))
-            
-            # Convert to datetime (I might not need this step, but was a helpful visual check)
+            # Convert unix to datetime
             datetime_list = []
             for time in unix_list:
                 unix_list.sort()
                 timestamp = (pd.to_datetime(int(time),unit='us')) 
                 #print(datetime)
                 datetime_list.append(timestamp)
-            
-            # Calculate time detla between frames
-            deltas = [x - datetime_list[i - 1] for i, x in enumerate(datetime_list)][1:]
-            
-            # Convert from Timedelta object to seconds
-            delta_time = []
-            for delta in deltas:
-                delta_time.append(delta.total_seconds())
-            
-            # Calculate different between frame numbers
-            frame_diff = [x - frame_nums[i - 1] for i, x in enumerate(frame_nums)][1:]
-            
-            # Correct time delta for the number of frames ellapsed
-            delta_time_corrected = np.array(delta_time) / np.array(frame_diff)
-            
-            # Calculate the mean and sd over the video
-            self.avg_dt = sum(delta_time_corrected) / len(delta_time_corrected)
-            self.sd_dt = np.std(delta_time_corrected)
+        # save first ROI frame number
+        first_roi_frame = frame_nums[0]
         
         for p in self.zoop_paths:
-            # space conversion
-            p.x_motion_phys = p.x_motion * (77.1 / 876)            # pixels to mm 
-            p.y_motion_phys = p.y_motion * (57.2 / 650)            # pixels to mm 
+            # Calculate frame specific time offsets
+            for l in range(len(p.frames)-1):
+                # find index in frame_nums == p.frames[l]
+                roi_frame = (p.frames[l] + (int(first_roi_frame)-1))         # Need to line up frames numbers - .dat files always start at 1, ROI frames can start anywhere (usually 0)
+                ind = frame_nums.index(roi_frame)
+                
+                # Calculate time detla between frames
+                delta = datetime_list[ind+1] - datetime_list[ind]
+                # Convert from Timedelta object to seconds
+                delta_time = delta.total_seconds()
+                
+                # Calculate different between frame numbers
+                frame_diff = frame_nums[ind+1] - frame_nums[ind]
+                
+                # Correct time delta for the number of frames ellapsed
+                p.delta_time_corrected[l] = delta_time / frame_diff
+            p.delta_time_corrected[-1] = p.delta_time_corrected[-2]         # just making the last offset the same as the second to last  
             
-            # time conversion 
-            p.x_motion_phys = p.x_motion_phys * (1 / self.avg_dt)           # frames to sec (frame rate = 1/dt)
-            p.y_motion_phys = p.y_motion_phys * (1 / self.avg_dt)           # frames to sec (frame rate = 1/dt)
+            # time conversion -------------------------------------------------------------
+            p.x_motion_phys = np.array(p.x_motion) * (1 / np.array(p.delta_time_corrected))           # frames to sec (frame rate = 1/dt)
+            p.y_motion_phys = np.array(p.y_motion) * (1 / np.array(p.delta_time_corrected))           # frames to sec (frame rate = 1/dt)
+            
+            # space conversion ------------------------------------------------------------
+            p.x_motion_phys = np.array(p.x_motion_phys) * (77.1 / 876)                                          # pixels to mm 
+            p.y_motion_phys = np.array(p.y_motion_phys) * (57.2 / 650)                                          # pixels to mm 
 
     def plot_motion(self, plot_flow_motion=False, plot_flow_position=False):
         # plot zooplankton MOTION
@@ -535,25 +643,3 @@ class Analysis():
             plt.axhline(y=0, color='k', linestyle='-')
             plt.axvline(x=0, color='k', linestyle='-')
             plt.show()
-
-    def plot_flow_position(self):
-        for p in self.snow_paths:   
-            plt.scatter(p.x_pos, p.y_pos)
-            plt.plot(p.x_pos, p.y_pos)
-        plt.xlabel("x-pos")
-        plt.ylabel("y-pos")
-        plt.axhline(y=100, color='k', linestyle='-')
-        plt.axhline(y=200, color='k', linestyle='-')
-        plt.axhline(y=300, color='k', linestyle='-')
-        plt.axhline(y=400, color='k', linestyle='-')
-        plt.axhline(y=500, color='k', linestyle='-')
-        plt.axhline(y=600, color='k', linestyle='-')
-        plt.axvline(x=100, color='k', linestyle='-')
-        plt.axvline(x=200, color='k', linestyle='-')
-        plt.axvline(x=300, color='k', linestyle='-')
-        plt.axvline(x=400, color='k', linestyle='-')
-        plt.axvline(x=500, color='k', linestyle='-')
-        plt.axvline(x=600, color='k', linestyle='-')
-        plt.axvline(x=700, color='k', linestyle='-')
-        plt.axvline(x=800, color='k', linestyle='-')
-        plt.show()

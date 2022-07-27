@@ -34,6 +34,12 @@ pd.set_option('display.max_rows', 1000)
 
 # ==================================================================================
 
+# Flowfield test
+test = is3.Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_mini_missing')
+
+test.flowfield_full_np.shape
+test.smooth_flow()
+
 # TESTS with everything run from scratch in 1537773747 folder
 
 # NOTES: you have to update the start frame (line 323) in is3 for each video -- very annoying 

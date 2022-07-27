@@ -36,11 +36,11 @@ import in_situ_analysis_PIVintegration
 
 # Use if you want to make a list of shrink directoires within a parent directory
 #rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check'
-rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/test_folder'
-#rootdir = None
+#rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/test_folder'
+rootdir = None
 
 # Use if you want to manually create a list of directories:
-#dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_mini']
+dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_mini']
 #dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_600_800', '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test']
 #dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_200','/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_200_400', '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_400_600', '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_600_800', '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test']
 #dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_400_600', '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_600_800']
@@ -190,8 +190,9 @@ print("==============================================")
 
 # BUGBASHING:
 
-# 3) Warning at the end of the whole script running 
-    # /usr/local/bin/python3.8: Error while finding module specification for 'batch_run_PIA_w_PIV.py' (ModuleNotFoundError: __path__ attribute not found on 'batch_run_PIA_w_PIV' while trying to find 'batch_run_PIA_w_PIV.py')
+# 3) (solved..... try not using .py) Warning at the end of the whole script running 
+    # /usr/local/bin/python3.8: Error while finding module specification for 'batch_run_PIA_w_PIV.py' (ModuleNotFoundError: __path__ attribute 
+    # not found on 'batch_run_PIA_w_PIV' while trying to find 'batch_run_PIA_w_PIV.py')
 
 # (solved) 2) Warning when I run video.remove_flow() - still runs but need to figure out 
 # https://stackoverflow.com/questions/31814837/numpy-mean-of-empty-slice-warning -- just ignored error
