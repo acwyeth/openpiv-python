@@ -36,11 +36,11 @@ import in_situ_analysis_PIVintegration
 
 # Use if you want to make a list of shrink directoires within a parent directory
 #rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check'
-#rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/test_folder'
-rootdir = None
+rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/test_folder'
+#rootdir = None
 
 # Use if you want to manually create a list of directories:
-dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_mini']
+#dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_mini']
 #dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_600_800', '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test']
 #dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_200','/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_200_400', '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_400_600', '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_600_800', '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test']
 #dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_400_600', '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/shrink_600_800']
@@ -122,6 +122,8 @@ for shrink in shrink_dirs_to_process:
         video.assign_chemistry()             
         print("Removing background flow....")
         video.remove_flow()                         # this is a really slow step
+        print("Converting to physical motion...")
+        video.convert_to_physical()
         
         # 3) Store analysis and key information in lookup table
         print("Storing video information....")

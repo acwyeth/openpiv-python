@@ -33,17 +33,78 @@ np.set_printoptions(suppress=True, linewidth=75)
 pd.set_option('display.max_rows', 1000)
 
 # ==================================================================================
+# video breakinng in batch script
+
+# Removing background flow....
+# Broken frame pair: ['SHRINK-30-SPC-UW-1501426334918716-258237003382-000008.tif'], []
+# Broken frame pair: [], ['SHRINK-30-SPC-UW-1501426334958056-258237053386-000010.tif']
+# Broken frame pair: ['SHRINK-30-SPC-UW-1501426359955784-258262355489-000516.tif'], []
+# Segmentation fault (core dumped)
+
+# also closes my python session if Im running from within python 
+# https://stackoverflow.com/questions/13654449/error-segmentation-fault-core-dumped 
+
+# self.full_flowfield.get_flow(p.frames[l], p.x_pos[l], p.y_pos[l])
+    # tree = spatial.KDTree(coordinates)
+    
+# I think the issue is that in this particular video the first array is empty, so when it pulls the x,y coords there is nothing and its explodes
+# because the x,y grids are always the same I could hard code these in? 
+
+
+
+test_zoops = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink/zoop_30-5000.dat', 
+    snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink',
+    class_file='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink/ROIs_classified/predictions.csv',
+    CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
+
+test_zoops.remove_flow()
+
+
+test = is3.Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink')
+
+test.flowfield_full_np
+test.u_flow_raw
+test.u_flow_smooth[1]
+u_point_flow = test.u_flow_smooth[1].reshape(20,)
+v_point_flow = test.v_flow_smooth[1].reshape(20,)
+
+test.flowfield_full_np[0,0,:]
+
+coordinates = list(zip(self.flowfield_full_np[0,0,:], self.flowfield_full_np[0,1,:]))
+        
+        print(coordinates)
+        print("check4")
+        tree = spatial.KDTree(coordinates)
+        print("check5")
+        pos_ind = tree.query([(self.x_pos,self.y_pos)])[1][0]
+
+# create a single PIV flowfield
+self.full_flowfield = Flowfield_PIV_Full(self.snow_directory)
+
+for p in self.zoop_paths:
+    # store PIV flow at specific space/time localizations
+    for l in range(len(p.frames)):
+        self.full_flowfield.get_flow(p.frames[l], p.x_pos[l], p.y_pos[l])
+        p.x_flow_smoothed[l] = self.full_flowfield.point_u_flow
+        p.y_flow_smoothed[l] = self.full_flowfield.point_v_flow
+    
+    # calculate zooplankton motion (PTV of zoop paths minus PIV of snow particles)
+    p.x_motion = (p.x_vel_smoothed - p.x_flow_smoothed)
+    p.y_motion = (p.y_vel_smoothed - p.y_flow_smoothed)
+
+
+
 
 # Flowfield test
 test = is3.Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_mini_missing')
-
-test.flowfield_full_np.shape
 test.smooth_flow()
+test.get_flow(2, 100, 200)
 
-# TESTS with everything run from scratch in 1537773747 folder
-
-# NOTES: you have to update the start frame (line 323) in is3 for each video -- very annoying 
-    # once I start working with full videos they will all start at the same frame number
+test.flowfield_full_np
+test.flowfield_full_np.shape
+test.flowfield_full_np[:,2,:].reshape(15,4,5)
+test.u_flow_raw
+test.u_flow_smooth
 
 # ------------
 # motion_test 
@@ -55,8 +116,14 @@ test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_trackin
 
 test.assign_classification()
 test.assign_chemistry()             # turn off some of the output
-test.remove_flow()                  # run time is fairly slow
+test.remove_flow()                  # run time is fairly slow -- still using old Flowfield class -- need to update next
 test.convert_to_physical()
+
+test.zoop_paths[1].classification
+test.zoop_paths[1].x_flow_raw
+test.zoop_paths[1].x_flow_smoothed      # this will change a little 
+test.zoop_paths[1].x_motion
+test.zoop_paths[1].x_motion_phys
 
 test.profile                        
 test.nearest_earlier_cast           
