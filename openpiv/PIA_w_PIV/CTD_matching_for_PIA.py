@@ -143,8 +143,10 @@ class Analysis():
         print('found {} ctd files'.format(len(self.ctd_files)))
         
         # extract datenum from video file name
-        dt = datetime.utcfromtimestamp(self.profile) 
-        self.vid_datnum = dt.strftime("%d-%b-%Y %H:%M:%S")
+        #dt = datetime.utcfromtimestamp(self.profile) 
+        #self.vid_datnum = dt.strftime("%d-%b-%Y %H:%M:%S")
+        dt = pd.to_datetime(int(self.profile),unit='s', utc=True)                                     # !!! NEW LINE OF CODE !!!
+        self.vid_datnum = dt.tz_convert('US/Pacific')
         
         # call methods
         self.get_closest_chem()
@@ -154,14 +156,16 @@ class Analysis():
         cast_dates = list(map(lambda val: val.datestring, self.all_ctd_data))
         
         # 2) Function to return the INDEX of the nearest SMALLER neighbor
-        def LowerNeighborIndex(cdt_cast, video):
+        def LowerNeighborIndex(ctd_cast, video):
             index = 0
-            while index < len(cdt_cast) and datetime.strptime(video, "%d-%b-%Y %H:%M:%S") > datetime.strptime(cdt_cast[index], "%d-%b-%Y %H:%M:%S"):
+            #while index < len(cdt_cast) and datetime.strptime(video, "%d-%b-%Y %H:%M:%S") > datetime.strptime(cdt_cast[index], "%d-%b-%Y %H:%M:%S"):
+            while index < len(ctd_cast) and datetime.strptime(video, "%Y-%m-%d %H:%M:%S") > datetime.strptime(ctd_cast[index], "%d-%b-%Y %H:%M:%S"):        # !!! NEW LINE OF CODE !!!
                 index = index + 1
             #return [(index-1), video, cdt_cast[(index-1)]]
             return (index-1)
         
-        closest_cast_index = LowerNeighborIndex(cast_dates, self.vid_datnum)
+        #closest_cast_index = LowerNeighborIndex(cast_dates, self.vid_datnum)
+        closest_cast_index = LowerNeighborIndex(cast_dates, str(self.vid_datnum)[0:-6])                             # !!! NEW LINE OF CODE !!!
         
         # Save chemistry of interest with video 
             # taking the average of lines 300-400 because there is data where the video is parked (where videos are recorded) and allows enough time for oxygen sensor to warm up

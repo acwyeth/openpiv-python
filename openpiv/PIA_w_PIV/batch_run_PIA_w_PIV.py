@@ -35,8 +35,8 @@ import in_situ_analysis_PIVintegration
     # rootdir > list of profiles (profile) > shrink (subdir) > images (img) + ROIs > ROIs_classified
 
 # Use if you want to make a list of shrink directoires within a parent directory
-#rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check'
-rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/test_folder'
+rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check'
+#rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/test_folder'
 #rootdir = None
 
 # Use if you want to manually create a list of directories:
@@ -90,6 +90,13 @@ os.mkdir(output_path)
 print("Output Directory Created: " + str(output_path))
 print("")
 
+# Create .txt file with user input run information
+text = input("Please enter batch analysis notes: ")
+with open(os.path.join(output_path, "analysis_info.txt"), mode = "w") as f:
+    f.write(text)
+
+print("")
+
 # ==============================================================
 
 # Process shrink directories
@@ -120,7 +127,7 @@ for shrink in shrink_dirs_to_process:
         video.assign_classification()
         print("Matching nearest CTD casts....")
         video.assign_chemistry()             
-        print("Removing background flow....")
+        print("Generating/removing background flow....")
         video.remove_flow()                         # this is a really slow step
         print("Converting to physical motion...")
         video.convert_to_physical()

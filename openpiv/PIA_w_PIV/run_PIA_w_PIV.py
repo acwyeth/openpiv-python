@@ -52,12 +52,12 @@ pd.set_option('display.max_rows', 1000)
 
 
 
-test_zoops = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink/zoop_30-5000.dat', 
+test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink/zoop_30-5000.dat', 
     snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink',
     class_file='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink/ROIs_classified/predictions.csv',
     CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
 
-test_zoops.remove_flow()
+test.assign_chemistry()
 
 
 test = is3.Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink')

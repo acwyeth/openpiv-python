@@ -1,5 +1,5 @@
 
-# ACW & DG 2021
+# ACW & DG 2022
 
 # In situ analysis:
     # reads in zoop and snow dat files (2D motion files)
@@ -36,9 +36,15 @@ import CTD_matching_for_PIA as ctd
 warnings.simplefilter("ignore")
 # numpy defaults
 np.set_printoptions(suppress=True, linewidth=100)
+
 #s_spline_flow=128       # flowfield smoothing parameter -- not using this class right now
 s_spline_flow=200
+
 verbose=False
+
+# PIV bins (5x4)
+x_bins = np.array([182., 310., 438., 566., 694., 182., 310., 438., 566., 694., 182., 310., 438., 566., 694., 182., 310., 438., 566., 694.])
+y_bins = np.array([517., 517., 517., 517., 517., 389., 389., 389., 389., 389., 261., 261., 261., 261., 261., 133., 133., 133., 133., 133.])
 
 # ==========================================================
 
@@ -130,21 +136,18 @@ class Flowfield_PIV_Full():
         
         # STILL WRAPPING MY HEAD AROUND THIS 
         # calculate the number of .tif images there would be in frames were not missing (an inclusive difference)
-        # because were smoothing over missing frames for the flowfield the array needs to be shaped as if they are not missing
+        # because we're smoothing over missing frames for the flowfield, so the array needs to be shaped as if they are not missing
         self.vid_length = int(last_roi_frame) - int(first_roi_frame) + 1
         
         # for each frame pair calculate and store the flowfield 
-        #for f in range(len(self.tif_list)-1):
-        #for f in range(len(self.tif_list)):
-        for f in range(self.vid_length):
+        #for f in range(len(self.tif_list)-1):                      # this broke when frames were missing 
+        for f in range(self.vid_length-1):
             
             # create an empty array 
             self.flow_layer = np.empty((5,20))      # 5 columns (x,y,u,v,mask) for 20 rows (5x4 flattened grid)
             
             roi_frame_a = int(first_roi_frame) + f 
             roi_frame_b = int(first_roi_frame) + f + 1
-            #print(roi_frame_a)
-            #print(roi_frame_b)
             
             roi_image_a = [f for f in os.listdir(self.directory) if  \
                         (os.path.isfile(os.path.join(self.directory, f)) and f.endswith(str("%06d"%(roi_frame_a))+'.tif'))]
@@ -174,8 +177,8 @@ class Flowfield_PIV_Full():
             
             self.flowfield_full.append(self.flow_layer)
             
-        # add one layer of NaNs for the last frame
-        #self.flowfield_full.append(np.full((5,20),np.nan))
+        # add one layer of NaNs for the last frame (versus treating it as broken frame pair)
+        self.flowfield_full.append(np.full((5,20),np.nan))
         
         # convert to a 3D numpy array
         self.flowfield_full_np = np.array(self.flowfield_full)
@@ -195,7 +198,7 @@ class Flowfield_PIV_Full():
         self.v_flow_smooth = np.empty_like(self.v_flow_raw)
         
         # TEMPORAL SMOOTHING
-        # this is just a placeholder for the real frame number, which I don't think matters too much here
+        # this is a placeholder for the real frame number, which I don't think we need here, its just a pseudo x-axis
         frames = list(range(self.u_flow_raw.shape[0]))
         
         # repeat for each of the 20 (5x4) sptials grids
@@ -221,30 +224,25 @@ class Flowfield_PIV_Full():
                 # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.UnivariateSpline.html
                 u_flow_spline = LSQUnivariateSpline(frames, u_grid_thru_time, flow_knts, w=~wu, k=1)       # calculate spline for observed flow
                 u_flow_output = u_flow_spline.__call__(frames)
-                #print(u_flow_output)
                 v_flow_spline = LSQUnivariateSpline(frames, v_grid_thru_time, flow_knts, w=~wv, k=1)
                 v_flow_output = v_flow_spline.__call__(frames)
-                #print(v_flow_output)
                 
                 self.u_flow_smooth[:,i,j] = u_flow_output
                 self.v_flow_smooth[:,i,j] = v_flow_output
     
     def get_flow(self, frame_num=None, x_pos=None, y_pos=None):
-        self.frame_num = (frame_num-1)  # to get index starting at 0
+        self.frame_num = (frame_num-1)  # T3D frame numbers start at 1, index needs to start at 0
         self.x_pos = x_pos
         self.y_pos = y_pos
         
         # pull the correct frame (time)
-        #u_point_flow = self.u_flow_smooth[(self.frame_num-1)].reshape(20,)
-        #v_point_flow = self.v_flow_smooth[(self.frame_num-1)].reshape(20,)
         u_point_flow = self.u_flow_smooth[self.frame_num].reshape(20,)
         v_point_flow = self.v_flow_smooth[self.frame_num].reshape(20,)
                 
         #find closest x and y coordinates (space)
-        # hard coding this in for now 
-        x_coords = np.array([182., 310., 438., 566., 694., 182., 310., 438., 566., 694., 182., 310., 438., 566., 694., 182., 310., 438., 566., 694.])
-        y_coords = np.array([517., 517., 517., 517., 517., 389., 389., 389., 389., 389., 261., 261., 261., 261., 261., 133., 133., 133., 133., 133.])
-        #coordinates = list(zip(self.flowfield_full_np[0,0,:], self.flowfield_full_np[0,1,:]))
+        x_coords = x_bins
+        y_coords = y_bins
+        #coordinates = list(zip(self.flowfield_full_np[0,0,:], self.flowfield_full_np[0,1,:]))      # this broke when the first array was empty 
         coordinates = list(zip(x_coords, y_coords))
         tree = spatial.KDTree(coordinates)
         pos_ind = tree.query([(self.x_pos,self.y_pos)])[1][0]

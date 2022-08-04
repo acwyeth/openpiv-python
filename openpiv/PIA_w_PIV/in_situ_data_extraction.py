@@ -16,7 +16,9 @@ import pickle
 
 # ==================================================================
 
-rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-07-15 13:39:06.936432'
+rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-08-01 18:01:18.368946'
+#rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-07-15 13:39:06.936432'
+#rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-07-18 14:27:30.607462'
 
 lookup_file = 'processed_lookup_table.csv'
 
@@ -38,14 +40,15 @@ keys_list = list(video_dic)
 
 # ==================================================================
 
-
 video_dic[keys_list[0]].profile
 video_dic[keys_list[1]].zoop_paths
-video_dic[keys_list[1]].zoop_paths[1].x_motion      # I think this read in backwards? the 999 should be the last frame
+video_dic[keys_list[1]].zoop_paths[1].x_motion
 
+# ==================================================================
 
+# I want some quick data viz here 
 
-
+video_dic['1537007549'].zoop_paths
 
 
 
