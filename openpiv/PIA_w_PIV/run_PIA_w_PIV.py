@@ -32,6 +32,9 @@ np.set_printoptions(suppress=True, linewidth=1000)
 np.set_printoptions(suppress=True, linewidth=75) 
 pd.set_option('display.max_rows', 1000)
 
+
+np.set_printoptions(threshold=sys.maxsize)
+
 # ==================================================================================
 # video breakinng in batch script
 
@@ -52,45 +55,70 @@ pd.set_option('display.max_rows', 1000)
 
 
 
-test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink/zoop_30-5000.dat', 
-    snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink',
-    class_file='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink/ROIs_classified/predictions.csv',
+test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537773747/shrink/zoop_30-5000.dat', 
+    snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537773747/shrink',
+    class_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537773747/shrink/ROIs_classified/predictions.csv',
     CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
 
-test.assign_chemistry()
+test.assign_classification()
+test.assign_chemistry()             
+test.remove_flow()                  
+test.convert_to_physical()
 
 
-test = is3.Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1501426321/shrink')
+test = is3.Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537773747/shrink')
 
-test.flowfield_full_np
-test.u_flow_raw
-test.u_flow_smooth[1]
-u_point_flow = test.u_flow_smooth[1].reshape(20,)
-v_point_flow = test.v_flow_smooth[1].reshape(20,)
+from scipy.interpolate import UnivariateSpline, LSQUnivariateSpline
 
-test.flowfield_full_np[0,0,:]
-
-coordinates = list(zip(self.flowfield_full_np[0,0,:], self.flowfield_full_np[0,1,:]))
+      
+test.u_flow_raw = test.flowfield_full_np[:,2,:].reshape(test.vid_length,4,5)
+test.v_flow_raw = test.flowfield_full_np[:,3,:].reshape(test.vid_length,4,5)
         
-        print(coordinates)
-        print("check4")
-        tree = spatial.KDTree(coordinates)
-        print("check5")
-        pos_ind = tree.query([(self.x_pos,self.y_pos)])[1][0]
+# empty array to store smoothed values
+test.u_flow_smooth = np.empty_like(test.u_flow_raw)
+test.v_flow_smooth = np.empty_like(test.v_flow_raw)
 
-# create a single PIV flowfield
-self.full_flowfield = Flowfield_PIV_Full(self.snow_directory)
+# TEMPORAL SMOOTHING
+# this is a placeholder for the real frame number, which I don't think we need here, its just a pseudo x-axis
+frames = list(range(test.u_flow_raw.shape[0]))
 
-for p in self.zoop_paths:
-    # store PIV flow at specific space/time localizations
-    for l in range(len(p.frames)):
-        self.full_flowfield.get_flow(p.frames[l], p.x_pos[l], p.y_pos[l])
-        p.x_flow_smoothed[l] = self.full_flowfield.point_u_flow
-        p.y_flow_smoothed[l] = self.full_flowfield.point_v_flow
-    
-    # calculate zooplankton motion (PTV of zoop paths minus PIV of snow particles)
-    p.x_motion = (p.x_vel_smoothed - p.x_flow_smoothed)
-    p.y_motion = (p.y_vel_smoothed - p.y_flow_smoothed)
+# repeat for each of the 20 (5x4) sptials grids
+for i in range(test.u_flow_raw.shape[1]):
+    for j in range(test.u_flow_raw.shape[2]):
+        u_grid_thru_time = test.u_flow_raw[:,i,j]
+        v_grid_thru_time = test.v_flow_raw[:,i,j]
+        
+        flow_knts = []
+        flow_knt_smooth = 10
+        flow_num_knts = int((frames[-1] - frames[0])/flow_knt_smooth)
+        flow_knt_space = (frames[-1] - frames[0])/(flow_num_knts+1)
+        for k in range(flow_num_knts):
+            flow_knts.append(flow_knt_space*(k+1) + frames[0])
+        
+        # assign zero weight to nan values (https://gemfury.com/alkaline-ml/python:scipy/-/content/interpolate/fitpack2.py)
+        wu = np.isnan(u_grid_thru_time)
+        u_grid_thru_time[wu] = 0.
+        wv = np.isnan(v_grid_thru_time)
+        v_grid_thru_time[wv] = 0.
+        
+        # assign zero weight to all 0 values (the converted nans and piv zeros -- need to think about why those are here)
+        wu = np.array([i==0 for i in u_grid_thru_time])
+        wv = np.array([i==0 for i in v_grid_thru_time])
+        
+        # Same smoothing method as for zooplankton tracks
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.UnivariateSpline.html
+        u_flow_spline = LSQUnivariateSpline(frames, u_grid_thru_time, flow_knts, w=~wu, k=1)       # calculate spline for observed flow
+        u_flow_output = u_flow_spline.__call__(frames)
+        v_flow_spline = LSQUnivariateSpline(frames, v_grid_thru_time, flow_knts, w=~wv, k=1)
+        v_flow_output = v_flow_spline.__call__(frames)
+        
+        test.u_flow_smooth[:,i,j] = u_flow_output
+        test.v_flow_smooth[:,i,j] = v_flow_output
+
+plt.plot(frames, test.u_flow_raw[:,1,1])
+plt.plot(frames, test.u_flow_smooth[:,1,1])
+
+
 
 
 

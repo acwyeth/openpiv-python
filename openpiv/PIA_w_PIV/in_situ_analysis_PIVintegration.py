@@ -208,7 +208,8 @@ class Flowfield_PIV_Full():
                 v_grid_thru_time = self.v_flow_raw[:,i,j]
                 
                 flow_knts = []
-                flow_knt_smooth = 3
+                #flow_knt_smooth = 3
+                flow_knt_smooth = 10
                 flow_num_knts = int((frames[-1] - frames[0])/flow_knt_smooth)
                 flow_knt_space = (frames[-1] - frames[0])/(flow_num_knts+1)
                 for k in range(flow_num_knts):
@@ -219,6 +220,10 @@ class Flowfield_PIV_Full():
                 u_grid_thru_time[wu] = 0.
                 wv = np.isnan(v_grid_thru_time)
                 v_grid_thru_time[wv] = 0.
+                
+                # NEW: assign zero weight to all 0 values (the converted nans and other zeros)
+                wu = np.array([i==0 for i in u_grid_thru_time])
+                wv = np.array([i==0 for i in v_grid_thru_time])
                 
                 # Same smoothing method as for zooplankton tracks
                 # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.UnivariateSpline.html
