@@ -36,24 +36,6 @@ pd.set_option('display.max_rows', 1000)
 np.set_printoptions(threshold=sys.maxsize)
 
 # ==================================================================================
-# video breakinng in batch script
-
-# Removing background flow....
-# Broken frame pair: ['SHRINK-30-SPC-UW-1501426334918716-258237003382-000008.tif'], []
-# Broken frame pair: [], ['SHRINK-30-SPC-UW-1501426334958056-258237053386-000010.tif']
-# Broken frame pair: ['SHRINK-30-SPC-UW-1501426359955784-258262355489-000516.tif'], []
-# Segmentation fault (core dumped)
-
-# also closes my python session if Im running from within python 
-# https://stackoverflow.com/questions/13654449/error-segmentation-fault-core-dumped 
-
-# self.full_flowfield.get_flow(p.frames[l], p.x_pos[l], p.y_pos[l])
-    # tree = spatial.KDTree(coordinates)
-    
-# I think the issue is that in this particular video the first array is empty, so when it pulls the x,y coords there is nothing and its explodes
-# because the x,y grids are always the same I could hard code these in? 
-
-
 
 test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537773747/shrink/zoop_30-5000.dat', 
     snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537773747/shrink',
@@ -65,11 +47,17 @@ test.assign_chemistry()
 test.remove_flow()                  
 test.convert_to_physical()
 
+# ---------------------------------------------------------------
 
-test = is3.Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537773747/shrink')
+# videos with NaN flowfields:
+    # ['1536826760' '1537804398']
+    # 6760 -- this one should break , 400 frames and very fragmented and broken/corrupted frames 
+    # 4398 -- this one should work, maybe there is too big of a gap (472-487) (greater than the knt spacing - 10)
+        # hmm not sure the best fix for this one -- dont want to increase my knt placement to span the gap
+
+test = is3.Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537804398/shrink')
 
 from scipy.interpolate import UnivariateSpline, LSQUnivariateSpline
-
       
 test.u_flow_raw = test.flowfield_full_np[:,2,:].reshape(test.vid_length,4,5)
 test.v_flow_raw = test.flowfield_full_np[:,3,:].reshape(test.vid_length,4,5)

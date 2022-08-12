@@ -70,7 +70,7 @@ if rootdir is not None:
         #os.listdir(os.path.join(rootdir,profile))
         for subdir in os.listdir(os.path.join(rootdir,profile)):
             if subdir == 'shrink':
-                if len(os.listdir(os.path.join(rootdir,profile,subdir))) < max_frames:
+                if len(os.listdir(os.path.join(rootdir,profile,subdir))) < max_frames and len(os.listdir(os.path.join(rootdir,profile,subdir))) > 0:
                     shrink_dirs_to_process.append(os.path.join(rootdir,profile,subdir))
                 else:
                     skipped_dirs = [str(os.path.join(rootdir,profile)), 'skipped']
@@ -149,7 +149,8 @@ for shrink in shrink_dirs_to_process:
         
     except:
             # Still store a list of videos that fucked up in some way -- maybe I can try to track where it errored out
-            failed_dirs = [str(Path(shrink).parent)[-10:], 'failed']
+            failed_dirs = [str(Path(shrink).parent), 'failed']
+            #failed_dirs = [str(Path(shrink).parent)[-10:], 'failed']
             analysis_objs_failed.append(failed_dirs)
             print(" *** FAILED TO PROCESS VIDEO: " + shrink_dir)
         
