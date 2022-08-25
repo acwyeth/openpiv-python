@@ -207,7 +207,7 @@ class ZoopMask():
             points = np.array([[roi.j_beg,roi.i_end],[roi.j_beg,roi.i_beg],[roi.j_end,roi.i_beg],[roi.j_end,roi.i_end]])
             # Use fillPoly() function and give input as image,
             cv2.fillPoly(self.masked_image, pts=[points], color=(0, 0, 0))
-        # cv2.imshow("Filled Zoops", self.masked_image)        
+        #cv2.imshow("Filled Zoops", self.masked_image)        
 
 class PIV():
     def __init__(self, frame1=None, frame2=None, save_setting=True, display_setting=True, verbosity_setting=True):
@@ -248,7 +248,8 @@ class PIV():
         x, y = pyprocess.get_coordinates( image_size=frame_a.shape, search_area_size=srch, overlap=ovrlp )
         
         # 4) mask displacement values with s2n (peak2peak) value below threshold (should think about this thresh more)
-        u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.3 )
+        #u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.3 )
+        u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.1 )       # ACW experiment!
         if verbose == True:
             print('ROUND 2: S2N mask')
             print(u,v,mask)

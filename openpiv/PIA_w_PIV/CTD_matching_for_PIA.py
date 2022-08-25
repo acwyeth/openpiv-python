@@ -167,12 +167,28 @@ class Analysis():
         #closest_cast_index = LowerNeighborIndex(cast_dates, self.vid_datnum)
         closest_cast_index = LowerNeighborIndex(cast_dates, str(self.vid_datnum)[0:-6])                             # !!! NEW LINE OF CODE !!!
         
-        # Save chemistry of interest with video 
+        # Save chemistry of interest with video (at the parking depth)
             # taking the average of lines 300-400 because there is data where the video is parked (where videos are recorded) and allows enough time for oxygen sensor to warm up
         self.nearest_earlier_cast = self.all_ctd_data[closest_cast_index].datestring
-        #self.time_offset = (self.vid_datnum - datetime.strptime(self.all_ctd_data[closest_cast_index].datestring, "%d-%b-%Y %H:%M:%S")) # gives a timedelta which I dont love but not dealing with now 
+        self.time_offset = self.vid_datnum - pd.Timestamp(self.nearest_earlier_cast, tz='US/Pacific')
         self.temp_avg = mean(self.all_ctd_data[closest_cast_index].ctd_data['Temp'][300:400])
         self.fluor_avg = mean(self.all_ctd_data[closest_cast_index].ctd_data['Fluorometer'][300:400])
         self.depth_avg = mean(self.all_ctd_data[closest_cast_index].ctd_data['Depth'][300:400])
         self.salinity_avg = mean(self.all_ctd_data[closest_cast_index].ctd_data['Salinity'][300:400])
         self.oxygen_mgL_avg = mean(self.all_ctd_data[closest_cast_index].ctd_data['O2-mg/l'][300:400])
+        
+        # Save chemistry to the characterize the water column
+        # Save downcast 
+        start = self.all_ctd_data[closest_cast_index].ctd_data['Depth'].idxmin()
+        stop = self.all_ctd_data[closest_cast_index].ctd_data['Depth'].idxmax()
+        self.closest_downcast = self.all_ctd_data[closest_cast_index].ctd_data[start:stop]
+
+
+# delete after (for running tests on this script only)
+#test = Analysis(CTDdir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts' ,profile=1537804398)
+#pd.set_option('display.max_rows', None)
+# test.closest_downcast.loc[test.closest_downcast['O2-mg/l'].idxmin()]
+# test.closest_downcast.loc[test.closest_downcast['O2-mg/l'].idxmin()]['Depth']
+# test.closest_downcast.loc[test.closest_downcast['O2-mg/l'].idxmax()]
+# test.closest_downcast.loc[test.closest_downcast['O2-mg/l'].idxmax()]['Depth']
+# surface_conditions = test.closest_downcast['Depth'].loc[(test.depth_avg-5)]

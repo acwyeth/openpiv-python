@@ -47,7 +47,8 @@ rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check'
 
 # File Names --------------------------------------------------------
 zoop_dat = 'zoop_30-5000.dat'
-classification = 'ROIs_classified/predictions.csv'
+#classification = 'ROIs_classified/predictions.csv'         # copepod, blob
+classification = 'ROIs_classified2/predictions.csv'         # copepod, amphipod, other, blob
 CTD = '/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts'
 
 # Ouput Location --------------------------------------------------------
@@ -135,7 +136,19 @@ for shrink in shrink_dirs_to_process:
         # 3) Store analysis and key information in lookup table
         print("Storing video information....")
         #video_dic[str(Path(shrink).parent)[-10:]] = video                         # this will be helpful if I want to pickle the whole run
-        analysis_info = [str(Path(shrink).parent)[-10:], video.profile, video.depth_avg, video.oxygen_mgL_avg, len(video.zoop_paths)]
+        profile = str(Path(shrink).parent)[-10:]
+        datetime = video.profile
+        avg_frm_rate = video.avg_frame_rt
+        total_frames = len(video.full_flowfield.tif_list)
+        num_paths = len(video.zoop_paths)
+        depth = video.depth_avg
+        oxygen = video.oxygen_mgL_avg
+        temp = video.temp_avg
+        nearest_ctd = video.nearest_earlier_cast
+        nearest_ctd_offset = video.time_offset
+        
+        analysis_info = [profile, datetime, avg_frm_rate, total_frames, num_paths, depth, oxygen, temp, nearest_ctd, nearest_ctd_offset]
+        #analysis_info = [str(Path(shrink).parent)[-10:], video.profile, video.depth_avg, video.oxygen_mgL_avg, len(video.zoop_paths)]
         analysis_objs_created.append(analysis_info)
         
         # 4) Save pickle
@@ -161,7 +174,8 @@ print("Saving Lookup Tables ... ")
 processed_lookup = np.array(analysis_objs_created)
 processed_lookup_file = 'processed_lookup_table.csv'
 processed_lookup_path = os.path.join(output_path, processed_lookup_file)
-np.savetxt(processed_lookup_path, processed_lookup, delimiter=',', fmt='%s', header='Profile,Datettime,Depth,Oxygen,ZoopPaths')
+np.savetxt(processed_lookup_path, processed_lookup, delimiter=',', fmt='%s', header='profile, datetime, avg_frm_rate, total_frames, num_paths, depth, oxygen, temp, nearest_ctd, nearest_ctd_offset')
+#np.savetxt(processed_lookup_path, processed_lookup, delimiter=',', fmt='%s', header='Profile,Datettime,Depth,Oxygen,ZoopPaths')
 
 skipped = np.array(shrink_dirs_to_skip)
 failed = np.array(analysis_objs_failed)

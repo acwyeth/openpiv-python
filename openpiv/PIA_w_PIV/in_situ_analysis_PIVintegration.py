@@ -75,6 +75,8 @@ class Path():
         self.classification = np.empty(self.x_pos.size, dtype="object")
         self.classification[:] = 'None'
         self.delta_time_corrected = np.zeros(self.x_pos.size)
+        self.area = np.zeros(self.x_pos.size)
+        self.length = np.zeros(self.x_pos.size)
         
         if verbose:
             print('frames =',self.frames)
@@ -314,18 +316,30 @@ class Analysis():
             p.x_motion = (p.x_vel_smoothed - p.x_flow_smoothed)
             p.y_motion = (p.y_vel_smoothed - p.y_flow_smoothed)
     
-    def assign_classification(self):
+    def assign_class_and_size(self):
         '''method to match/assign classifcations to each localization in zoop_paths
         '''
         # Streamline Classication Data
         for c in self.class_rows:
             # Pull filename 
             line = c[1]
+            
             # Save frame number
             frame_tag = '_grp'                                          # frame number is listed directly before group number --  I think this is the easiest way to find it
             frame_tag_ind = line.find(frame_tag)
             frame_len= 6                                                # frame number is 6 digits long  
             frame_num = line[(frame_tag_ind-frame_len):frame_tag_ind]
+            
+            # Save major and minor semi-axis
+            ell_start_tag = '_e'
+            ell_end_tag = '.tif'
+            ell = line[line.find(ell_start_tag):line.find(ell_end_tag)]
+            ell = ell[2:]
+            ell = ell.replace("_", " ")
+            ell_int = [float(word) for word in ell.split()]         # center y, center x, semi minor, semi major, angle 
+            ell_length = ell_int[3] * 2
+            ell_area = ell_int[3] * ell_int[2] * math.pi
+    
             # Save center point 
             bbox_start_tag = '_r'     
             bbox_end_tag = 'e'
@@ -341,10 +355,14 @@ class Analysis():
             width = bbox_int[3]
             # Center of ROI
             roi_cnt = [(x_beg + (width/2)), (y_beg + (height/2))]
+            
             # Add columns to np_class_rows
             c.append(int(frame_num))
             c.append(roi_cnt[0])
             c.append(roi_cnt[1])
+            c.append(ell_length)
+            c.append(ell_area)
+        
         # Convert to numpy array
         self.np_class_rows = np.array(self.class_rows, dtype=object)
         
@@ -362,17 +380,19 @@ class Analysis():
                 y_pos = p.y_pos[l]
                 
                 # Pull ROI infomration from frame number
-                self.rois = self.np_class_rows[(self.np_class_rows[:,-3]) == self.frame, :]   # save lines of np_class_rows at correct frame
-                self.roi = self.rois[(self.rois[:,-2] < (x_pos+2)) & (self.rois[:,-2] > (x_pos-2)) & (self.rois[:,-1] < (y_pos+2)) & (self.rois[:,-1] > (y_pos-2)),:]         # if the center of the ROI is within sq pixels of the localization -- match it
+                self.rois = self.np_class_rows[(self.np_class_rows[:,-5]) == self.frame, :]   # save lines of np_class_rows at correct frame
+                self.roi = self.rois[(self.rois[:,-4] < (x_pos+2)) & (self.rois[:,-4] > (x_pos-2)) & (self.rois[:,-3] < (y_pos+2)) & (self.rois[:,-3] > (y_pos-2)),:]         # if the center of the ROI is within sq pixels of the localization -- match it
                 
                 if len(self.roi) == 1:
                     p.classification[l] = self.roi[:,4][0]
+                    p.length[l] = self.roi[:,-2][0]
+                    p.area[l] = self.roi[:,-1][0]
                     #print('SUCCESS: Match found')              # only printing errors right now to reduce output
                 if len(self.roi) == 0:
                     print('ERROR: No match found')
                 if len(self.roi) > 1:
                     print('ERROR: more than more 1 ROI found')
-
+    
     def assign_chemistry(self):
         # extract video profile from file path
         pro_line = self.class_rows[1][1]    
@@ -388,7 +408,7 @@ class Analysis():
         # assign CTD data to analysis object         
         self.profile = CTD_chemistry.vid_datnum
         self.nearest_earlier_cast = CTD_chemistry.nearest_earlier_cast
-        #self.time_offset = CTD_chemistry.time_offset
+        self.time_offset = CTD_chemistry.time_offset
         self.temp_avg = CTD_chemistry.temp_avg
         self.fluor_avg = CTD_chemistry.fluor_avg
         self.depth_avg = CTD_chemistry.depth_avg
@@ -428,8 +448,19 @@ class Analysis():
                 timestamp = (pd.to_datetime(int(time),unit='us')) 
                 #print(datetime)
                 datetime_list.append(timestamp)
+        
         # save first ROI frame number
         first_roi_frame = frame_nums[0]
+        
+        # calculate the average frame rate for reference  
+        deltas = [x - datetime_list[i - 1] for i, x in enumerate(datetime_list)][1:]
+        delta_time = []
+        for delta in deltas:
+            delta_time.append(delta.total_seconds())
+        frame_diff = [x - frame_nums[i - 1] for i, x in enumerate(frame_nums)][1:]
+        delta_time_corrected = np.array(delta_time) / np.array(frame_diff)
+        avg_dt = sum(delta_time_corrected) / len(delta_time_corrected)
+        self.avg_frame_rt = 1/avg_dt
         
         for p in self.zoop_paths:
             # Calculate frame specific time offsets (there is large variation in frame rates between and among videos)
