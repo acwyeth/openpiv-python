@@ -16,8 +16,122 @@ import pickle
 import statistics
 from collections import Counter
 from datetime import *
+import pandas as pd
+
+# ==================================================================
+
+class Analysis():
+    """ A class to read in a directory of pickled videos, sort them by chemical conditions, extract swimming stats, export dataframe
+    """
+    def __init__(self, rootdir=None, lookup_file=None, oxygen_thresh=None, time_thresh=None, depth_thresh=None, classifier=None):
+        
+        self.lookup_table = np.genfromtxt(os.path.join(rootdir,lookup_file), dtype = str, delimiter=',', skip_header=0)
+        self.video_dic = {}
+        self.oxygen_thresh = oxygen_thresh
+        self.time_thresh = time_thresh
+        self.depth_thresh = depth_thresh
+        self.classifier = classifier
+        
+        # Read in pickled video analyses 
+        for file in os.listdir(rootdir):
+            if file.endswith('.pickle'):
+                print(str(file)[0:10])
+                pickle_file = open(os.path.join(rootdir,file),"rb")
+                print(pickle_file)
+                self.video_dic[str(file)[0:10]] =  pickle.load(pickle_file)
+                pickle_file.close()
+                
+        self.keys_list = list(self.video_dic)
+        
+        # Sort videos into different groups (chem, depth, etc)
+        self.sorted_videos = []
+        for vid in self.lookup_table:
+            self.sort_vids(vid_dic=self.video_dic, video=vid, oxygen_thres=self.oxygen_thresh, time_thresh=self.time_thresh, depth_thresh=self.depth_thresh)
+        self.sorted_videos = pd.DataFrame(self.sorted_videos)
+        
+        # Extract path data from each group
+        self.sorted_data = []
+        for l in self.sorted_videos[0].unique():
+            for v in range(len(self.sorted_videos)):
+                if self.sorted_videos.iloc[v,0] == l:
+                    self.video_stats(video_paths=self.video_dic[self.sorted_videos.iloc[v,1]].zoop_paths, zoop_class=self.classifier, group=l)
+                    #print(self.path_stats)
+                    self.sorted_data.append(self.path_stats)
+        self.sorted_data = pd.DataFrame(self.sorted_data, columns=['group','classification','paths','jumps','avg_cruise_speed'])
+    
+    def sort_vids(self, vid_dic=None, video=None, oxygen_thres=None, time_thresh=None, depth_thresh=None):
+        if (float(video[6])) <= oxygen_thres:
+            time = datetime.strptime(video[1][:19], "%Y-%m-%d %H:%M:%S")
+            if time.hour <= time_thresh:
+                if (float(video[5])) <= depth_thresh:
+                    #print('hypoxic, AM, shallow')
+                    self.sorted_videos.append(['hypoxic_AM_shallow', video[0]])
+                else:
+                    #print('hypoxic, AM, deep')
+                    self.sorted_videos.append(['hypoxic_AM_deep', video[0]])
+            else: 
+                if (float(video[5])) <= depth_thresh:
+                    #print('hypoxic, PM, shallow')
+                    self.sorted_videos.append(['hypoxic_PM_shallow', video[0]])
+                else:
+                    #print('hypoxic, PM, deep')
+                    self.sorted_videos.append(['hypoxic_PM_deep', video[0]])
+        else: 
+            line = video[1]
+            time = datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S")
+            if time.hour <= time_thresh:
+                if (float(video[5])) <= depth_thresh:
+                    #print('normoxic, AM, shallow')
+                    self.sorted_videos.append(['normoxic_AM_shallow', video[0]])
+                else:
+                    #print('normoxic, AM, deep')
+                    self.sorted_videos.append(['normoxic_AM_deep', video[0]])
+            else: 
+                if (float(video[5])) <= depth_thresh:
+                    #print('normoxic, PM, shallow')
+                    self.sorted_videos.append(['normoxic_PM_shallow', video[0]])
+                else:
+                    #print('normoxic, PM, deep')
+                    self.sorted_videos.append(['normoxic_PM_deep', video[0]])
+    
+    def most_frequent(self, List):
+        occurence_count = Counter(List)
+        return occurence_count.most_common(1)[0][0]
+    
+    def video_stats(self, video_paths=None, zoop_class=None, group=None):
+        paths = 0
+        for path in video_paths:
+            jumps = 0
+            cruise_speed = []
+            if not np.isnan(path.x_flow_smoothed).any():                # skip paths with broken smoothing (for now)
+                if self.most_frequent(path.classification) == zoop_class:     # only grab paths that are mostly IDed as copepods 
+                    paths = paths +1
+                    for l in range(len(path.frames)):
+                        if path.speed[l] > 100:
+                            jumps = jumps + 1
+                        else:
+                            cruise_speed.append(path.speed[l])
+            #print(cruise_speed)
+            if len(cruise_speed) > 0:
+                avg_cruise_speed = statistics.mean(cruise_speed)
+            else:
+                avg_cruise_speed = 'NaN'
+            self.path_stats = [group, zoop_class, paths, jumps, avg_cruise_speed]
+
+# ==================================================================
+
+test = Analysis(rootdir='/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-08-17 15:47:46.686791', lookup_file='processed_lookup_table.csv', oxygen_thresh=2, time_thresh=12, depth_thresh=50, classifier='Copepod')
+
+test.sorted_data
 
 
+
+
+
+
+# ==================================================================
+# ==================================================================
+# OLD
 # ==================================================================
 
 # directories and filenames
@@ -50,29 +164,6 @@ for file in os.listdir(rootdir):
 
 keys_list = list(video_dic)
 
-# ----------------------------------------------------
-
-# optional analysis comparision 
-
-# rootdir2 = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-08-17 15:47:46.686791'
-
-# lookup_file2 = 'processed_lookup_table.csv'
-
-# lookup_table2 = np.genfromtxt(os.path.join(rootdir2,lookup_file2), dtype = str, delimiter=',', skip_header=0)
-
-# video_dic2 = {}
-
-# for file in os.listdir(rootdir2):
-#     if file.endswith('.pickle'):
-#         print(str(file)[0:10])
-#         pickle_file = open(os.path.join(rootdir2,file),"rb")
-#         print(pickle_file)
-#         video_dic2[str(file)[0:10]] =  pickle.load(pickle_file)
-#         pickle_file.close()
-
-# keys_list2 = list(video_dic2)
-
-
 # ==================================================================
 
 # define methods 
@@ -83,49 +174,26 @@ def most_frequent(List):
 
 def video_stats(video, zoop_class):
     for path in video:
+        paths = 0
         jumps = 0
         cruise_speed = []
         if not np.isnan(path.x_flow_smoothed).any():                # skip paths with broken smoothing (for now)
             if most_frequent(path.classification) == zoop_class:     # only grab paths that are mostly IDed as copepods 
+                paths = paths +1
                 for l in range(len(path.frames)):
                     if path.speed[l] > 100:
                         jumps = jumps + 1
                     else:
                         cruise_speed.append(path.speed[l])
-        print(cruise_speed)
+        #print(cruise_speed)
         if len(cruise_speed) > 0:
             avg_cruise_speed = statistics.mean(cruise_speed)
         else:
             avg_cruise_speed = 'NaN'
-        path_stats = [len(path.frames), jumps, avg_cruise_speed]
+        path_stats = [zoop_class, paths, jumps, avg_cruise_speed]
         return path_stats
-
-# ==================================================================
-
-# Analysis #3
-    # Need to split into different depths and times (ignore other water column properties for now)
-    # just look at copes for now (to simplify code)
-
-# parameters:
-    # # paths
-    # # frames
-    # number of jumps
-    # cruising speed  
-
-# groups: 
-    # hypoxic:
-        # day, deep
-        # night, deep
-        # day, shallow
-        # day, deep
-    # normoxic:
-        # day, deep
-        # night, deep
-        # day, shallow
-        # day, deep
-
-# could this be an analysis CLASS where the inputs are oxygen, time, depth 
-# Nan issue -- seems like too many? I dont really understand 
+        
+# ==========================================
 
 for video in lookup_table:
     if (float(video[6])) <= 2:
@@ -133,6 +201,7 @@ for video in lookup_table:
         time = datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S")
         if time.hour <= 12:
             if (float(video[5])) <= 50:
+                #print(video)
                 print('hypoxic, AM, shallow')
                 path_stats = video_stats(video_dic[video[0]].zoop_paths, 'Copepod')
                 print(path_stats)
