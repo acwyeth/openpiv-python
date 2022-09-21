@@ -48,7 +48,7 @@ rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check'
 # File Names --------------------------------------------------------
 zoop_dat = 'zoop_30-5000.dat'
 #classification = 'ROIs_classified/predictions.csv'         # copepod, blob
-classification = 'ROIs_classified2/predictions.csv'         # copepod, amphipod, other, blob
+classification = 'ROIs_classified6/predictions.csv'
 CTD = '/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts'
 
 # Ouput Location --------------------------------------------------------
@@ -71,7 +71,7 @@ if rootdir is not None:
         #os.listdir(os.path.join(rootdir,profile))
         for subdir in os.listdir(os.path.join(rootdir,profile)):
             if subdir == 'shrink':
-                if len(os.listdir(os.path.join(rootdir,profile,subdir))) < max_frames and len(os.listdir(os.path.join(rootdir,profile,subdir))) > 0:
+                if len(os.listdir(os.path.join(rootdir,profile,subdir))) < max_frames and len(os.listdir(os.path.join(rootdir,profile,subdir))) > 2:        # 2 bc the ROIs folder and .dat file are going to exist (fixed this downstream so eventually change back to zero)
                     shrink_dirs_to_process.append(os.path.join(rootdir,profile,subdir))
                 else:
                     skipped_dirs = [str(os.path.join(rootdir,profile)), 'skipped']
@@ -125,7 +125,7 @@ for shrink in shrink_dirs_to_process:
         
         # 2) Call methods
         print("Matching classifications....")
-        video.assign_classification()
+        video.assign_class_and_size()
         print("Matching nearest CTD casts....")
         video.assign_chemistry()             
         print("Generating/removing background flow....")

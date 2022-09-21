@@ -242,5 +242,5 @@ class Analysis():
 
 # ==================================================================
 
-test = Analysis(rootdir='/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-08-17 15:47:46.686791', lookup_file='processed_lookup_table.csv',
-    oxygen_thresh=2, time_thresh=12, depth_thresh=50, classifier='Copepod', save=True, output_file='post_processed_swimming_data.csv')
+#test = Analysis(rootdir='/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-08-17 15:47:46.686791', lookup_file='processed_lookup_table.csv',
+#    oxygen_thresh=2, time_thresh=12, depth_thresh=50, classifier='Copepod', save=True, output_file='post_processed_swimming_data.csv')

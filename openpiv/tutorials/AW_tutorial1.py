@@ -17,6 +17,8 @@ vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/PIV_tests/1537966443/shrink_piv'
 
 vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537804398/shrink_mini'
 
+vid_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_mini'
+
 # ==================================================================
 
 # generate a list of frames in given directory
