@@ -281,18 +281,19 @@ class Analysis():
         print('Success')
         
         # Read in AI classication output (.csv file)
-        self.class_file = class_file
-        print('Trying to load classification file: ', class_file)
-        csv_file = open(self.class_file)
-        csvreader = csv.reader(csv_file)
-        class_header = next(csvreader)
-        #print(class_header)
-        self.class_rows = class_rows
-        for row in csvreader:
-            self.class_rows.append(row)
-        #print(class_rows)
-        csv_file.close()
-        print('Success')
+        if class_file != None:
+            self.class_file = class_file
+            print('Trying to load classification file: ', class_file)
+            csv_file = open(self.class_file)
+            csvreader = csv.reader(csv_file)
+            class_header = next(csvreader)
+            #print(class_header)
+            self.class_rows = class_rows
+            for row in csvreader:
+                self.class_rows.append(row)
+            #print(class_rows)
+            csv_file.close()
+            print('Success')
         
         # Read in CTD directory
         print('Trying to load CTD casts from: ', CTD_dir)
