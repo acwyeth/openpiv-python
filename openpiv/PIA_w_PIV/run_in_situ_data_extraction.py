@@ -4,19 +4,32 @@
 # ACW 20 Sept 2022
 
 # Notes/To-Dos: 
-    # These time thresholds are very wrong
+    # Paths per video could be useful 
 
 import in_situ_data_extraction2 as ide
+from importlib import reload
+
+reload(ide)
 
 # =========================================================================================
 
 #analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-08-17 15:47:46.686791'
-analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-12 11:22:58.812187'
+#analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-12 11:22:58.812187'
+analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-20 16:26:10.449537'
 
 # =========================================================================================
 
 test = ide.Analysis(rootdir=analysis_folder, lookup_file='processed_lookup_table.csv',
-    oxygen_thresh=2, time_thresh=12, depth_thresh=50, classifier='Copepod', save=True, output_file='post_processed_swimming_data.csv')
+    oxygen_thresh=2, time_thresh1=7, time_thresh2=19, depth_thresh=50, classifier='Copepod', save=True, output_file='post_processed_swimming_data3.csv')
+    
+test = ide.Analysis(rootdir=analysis_folder, lookup_file='processed_lookup_table.csv',
+    oxygen_thresh=2, classifier='Copepod', save=True, output_file='post_processed_swimming_data4.csv')
+    
+test = ide.Analysis(rootdir=analysis_folder, lookup_file='processed_lookup_table.csv',
+    oxygen_thresh=2, depth_thresh=50, classifier='Copepod', save=True, output_file='post_processed_swimming_data4.csv')
+    
+test = ide.Analysis(rootdir=analysis_folder, lookup_file='processed_lookup_table.csv',
+    oxygen_thresh=2, depth_thresh=50, classifier='Amphipod', save=True, output_file='post_processed_swimming_data4.csv')
 
 # =========================================================================================
 
@@ -24,6 +37,8 @@ test = ide.Analysis(rootdir=analysis_folder, lookup_file='processed_lookup_table
 test.all_group_data
 test.video_dic
 test.sorted_videos
+test.lookup_table
+test.df
 
 # group level
 test.all_group_data[0].group
