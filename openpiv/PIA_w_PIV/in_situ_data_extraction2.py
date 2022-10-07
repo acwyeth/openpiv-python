@@ -163,7 +163,7 @@ class Group():
 class Analysis():
     """ A class to read in a directory of pickled videos, sort them by designated chemical/physical conditions, and store swimming data on the path, video, and group level
     """
-    def __init__(self, rootdir=None, lookup_file=None, oxygen_thresh=None, time_thresh1=None, time_thresh2=None, depth_thresh=None, classifier=None, save=True, output_file=None):
+    def __init__(self, rootdir=None, lookup_file=None, group_method=None, oxygen_thresh=None, time_thresh1=None, time_thresh2=None, depth_thresh=None, classifier=None, save=True, output_file=None):
         self.rootdir = rootdir
         self.lookup_table = np.genfromtxt(os.path.join(self.rootdir,lookup_file), dtype = str, delimiter=',', skip_header=0)
         self.video_dic = {}
@@ -188,9 +188,14 @@ class Analysis():
         # 2) Sort videos into different chemical/physical groups 
         self.sorted_videos = []
         for vid in self.lookup_table:
-            self.sort_vids_A(vid_dic=self.video_dic, video=vid, oxygen_thres=self.oxygen_thresh)
-            #self.sort_vids_B(vid_dic=self.video_dic, video=vid, oxygen_thres=self.oxygen_thresh, time_thresh1=self.time_thresh1, time_thresh2=self.time_thresh2, depth_thresh=self.depth_thresh)
-            #self.sort_vids_C(vid_dic=self.video_dic, video=vid, oxygen_thres=self.oxygen_thresh, depth_thresh=self.depth_thresh)
+            if group_method == 'A':
+                self.sort_vids_A(vid_dic=self.video_dic, video=vid, oxygen_thres=self.oxygen_thresh)
+            if group_method == 'B':
+                self.sort_vids_B(vid_dic=self.video_dic, video=vid, oxygen_thres=self.oxygen_thresh, time_thresh1=self.time_thresh1, time_thresh2=self.time_thresh2, depth_thresh=self.depth_thresh)
+            if group_method == 'C':     
+                self.sort_vids_C(vid_dic=self.video_dic, video=vid, oxygen_thres=self.oxygen_thresh, depth_thresh=self.depth_thresh)
+            if group_method == 'D':     
+                self.sort_vids_D(vid_dic=self.video_dic, video=vid, oxygen_thres=self.oxygen_thresh, time_thresh1=self.time_thresh1, time_thresh2=self.time_thresh2)
         self.sorted_videos = pd.DataFrame(self.sorted_videos)
         
         # 3) Calculate swimming stats for each video and create a dictionary of processed videos sorted by the chemical group (from step 2)
@@ -284,6 +289,27 @@ class Analysis():
                     self.sorted_videos.append(['normoxic_shallow', video[0]])
                 else:
                     self.sorted_videos.append(['normoxic_deep', video[0]])
+    
+    def sort_vids_D(self, vid_dic=None, video=None, oxygen_thres=None, time_thresh1=None, time_thresh2=None):
+        '''Sorts videos into 4 bins : hypoxic/normoxic, AM/PM
+        '''
+        line = video[9]
+        day_tag = ' days'
+        day_tag_ind = line.find(day_tag)
+        days = line[0:day_tag_ind]
+        if abs(int(days)) < 1:                  # exclude videos without a good CTD match
+            if (float(video[6])) <= oxygen_thres:
+                time = datetime.strptime(video[1][:19], "%Y-%m-%d %H:%M:%S")
+                if time.hour > time_thresh1 and time.hour < time_thresh2:
+                    self.sorted_videos.append(['hypoxic_AM', video[0]])
+                else: 
+                    self.sorted_videos.append(['hypoxic_PM', video[0]])
+            else: 
+                time = datetime.strptime(video[1][:19], "%Y-%m-%d %H:%M:%S")
+                if time.hour > time_thresh1 and time.hour < time_thresh2:
+                    self.sorted_videos.append(['normoxic_AM', video[0]])
+                else: 
+                    self.sorted_videos.append(['normoxic_PM', video[0]])
     
     def export_csv(self):
         self.df = pd.DataFrame(columns = ['Group', 'Videos', 'Paths', 'Frames', 'Total Jumps', 'Median Paths per Vid', 'Videos with Jumps', 'Avg Jumps per Path', 'Avg Jumps per Frame', 'Avg Cruise Speed', 'Vid w Jumps/Vid']) 

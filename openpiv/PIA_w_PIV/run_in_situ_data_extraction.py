@@ -3,33 +3,73 @@
 
 # ACW 20 Sept 2022
 
-# Notes/To-Dos: 
-    # Paths per video could be useful 
+
+# =========================================================================================
+
+# Import methods and packages 
 
 import in_situ_data_extraction2 as ide
 from importlib import reload
+import matplotlib.pyplot as plt
 
-reload(ide)
+#reload(ide)
 
 # =========================================================================================
 
-#analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-08-17 15:47:46.686791'
-#analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-12 11:22:58.812187'
+# Read Me:
+
+# Overview of grouping methods:
+    # A -- hypoxic/normoxic
+    # B -- hypoxic/normoxic, deep/shallow, AM/PM
+    # C -- hypoxic/normoxic, deep/shallow
+    # D -- hypoxic/normoxic, AM/PM
+
+# =========================================================================================
+
+# Define parameters:
+
 analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-20 16:26:10.449537'
+analysis_lookup_file = 'processed_lookup_table.csv'
+anlaysis_method = 'D'
+
+classification = 'Copepod'
+
+oxygen_threshold = 2
+time_threshold_early = 7
+time_threshold_late = 19
+depth_threshold = 50
+
+save_file = True
+
+# ---------------------------------------------------------------------------------------------------------------------------------------
+
+if anlaysis_method == 'A':
+    output_file_name = str('post_processed_mtd'+ anlaysis_method +'_' + classification +'_oxyg' + str(oxygen_threshold) + '.csv')
+elif anlaysis_method == 'B':
+    output_file_name = str('post_processed_mtd'+ anlaysis_method +'_' + classification +'_oxyg' + str(oxygen_threshold) + '_time' + str(time_threshold_early) + '_time' + str(time_threshold_late) + '_depth' + str(depth_threshold) + '.csv')
+elif anlaysis_method == 'C':
+    output_file_name = str('post_processed_mtd'+ anlaysis_method +'_' + classification +'_oxyg' + str(oxygen_threshold) + '_depth' + str(depth_threshold) + '.csv')
+elif anlaysis_method == 'D':
+    output_file_name = str('post_processed_mtd'+ anlaysis_method +'_' + classification +'_oxyg' + str(oxygen_threshold) + '_time' + str(time_threshold_early) + '_time' + str(time_threshold_late) + '.csv')
+else:
+    print('Grouping method is not definited')
+
+# ---------------------------------------------------------------------------------------------------------------------------------------
+
+test = ide.Analysis(rootdir=analysis_folder, lookup_file= analysis_lookup_file, group_method = anlaysis_method,
+    oxygen_thresh=oxygen_threshold, time_thresh1=time_threshold_early, time_thresh2=time_threshold_late, depth_thresh=depth_threshold, classifier=classification, 
+    save=save_file, output_file=output_file_name)
+
 
 # =========================================================================================
+# Experiment with charts in python
 
-test = ide.Analysis(rootdir=analysis_folder, lookup_file='processed_lookup_table.csv',
-    oxygen_thresh=2, time_thresh1=7, time_thresh2=19, depth_thresh=50, classifier='Copepod', save=True, output_file='post_processed_swimming_data3.csv')
-    
-test = ide.Analysis(rootdir=analysis_folder, lookup_file='processed_lookup_table.csv',
-    oxygen_thresh=2, classifier='Copepod', save=True, output_file='post_processed_swimming_data4.csv')
-    
-test = ide.Analysis(rootdir=analysis_folder, lookup_file='processed_lookup_table.csv',
-    oxygen_thresh=2, depth_thresh=50, classifier='Copepod', save=True, output_file='post_processed_swimming_data4.csv')
-    
-test = ide.Analysis(rootdir=analysis_folder, lookup_file='processed_lookup_table.csv',
-    oxygen_thresh=2, depth_thresh=50, classifier='Amphipod', save=True, output_file='post_processed_swimming_data4.csv')
+fig, (ax1, ax2) = plt.subplots(1, 2)
+fig.suptitle('Copepods')
+ax1.bar(test.df['Group'],test.df['Avg Cruise Speed'])
+ax1.set(ylabel="Avg Cruise Speed (mm/s)")
+ax2.bar(test.df['Group'],test.df['Avg Jumps per Frame'])
+ax2.set(ylabel="Avg Jumps per Frame")
 
 # =========================================================================================
 
