@@ -30,9 +30,9 @@ import matplotlib.pyplot as plt
 
 analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-20 16:26:10.449537'
 analysis_lookup_file = 'processed_lookup_table.csv'
-anlaysis_method = 'D'
+anlaysis_method = 'A'
 
-classification = 'Copepod'
+classification = 'Amphipod'
 
 oxygen_threshold = 2
 time_threshold_early = 7
@@ -42,6 +42,8 @@ depth_threshold = 50
 save_file = True
 
 # ---------------------------------------------------------------------------------------------------------------------------------------
+
+# Generate informative output file name
 
 if anlaysis_method == 'A':
     output_file_name = str('post_processed_mtd'+ anlaysis_method +'_' + classification +'_oxyg' + str(oxygen_threshold) + '.csv')
@@ -55,6 +57,8 @@ else:
     print('Grouping method is not definited')
 
 # ---------------------------------------------------------------------------------------------------------------------------------------
+
+# Create the Analysis object 
 
 test = ide.Analysis(rootdir=analysis_folder, lookup_file= analysis_lookup_file, group_method = anlaysis_method,
     oxygen_thresh=oxygen_threshold, time_thresh1=time_threshold_early, time_thresh2=time_threshold_late, depth_thresh=depth_threshold, classifier=classification, 
@@ -71,6 +75,7 @@ ax1.set(ylabel="Avg Cruise Speed (mm/s)")
 ax2.bar(test.df['Group'],test.df['Avg Jumps per Frame'])
 ax2.set(ylabel="Avg Jumps per Frame")
 
+
 # =========================================================================================
 
 # all data
@@ -82,6 +87,7 @@ test.df
 
 # group level
 test.all_group_data[0].group
+test.all_group_data[0].paths_per_vid
 test.all_group_data[0].group_vids
 test.all_group_data[0].group_cruise_speed
 test.all_group_data[0].group_avg_cruise_speed

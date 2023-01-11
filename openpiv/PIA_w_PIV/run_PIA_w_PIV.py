@@ -29,7 +29,7 @@ reload(is3)
 # ------------
 
 np.set_printoptions(suppress=True, linewidth=1000) 
-np.set_printoptions(suppress=True, linewidth=75) 
+np.set_printoptions(suppress=True, linewidth=50) 
 pd.set_option('display.max_rows', 1000)
 
 
@@ -40,6 +40,11 @@ np.set_printoptions(threshold=sys.maxsize)
 test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537804398/shrink/zoop_30-5000.dat', 
     snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537804398/shrink',
     class_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check/1537804398/shrink/ROIs_classified2/predictions.csv',
+    CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
+    
+test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/zoop_30-5000.dat', 
+    snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test',
+    class_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/ROIs_classified/predictions.csv',
     CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
 
 #test.assign_classification()
