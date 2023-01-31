@@ -2,10 +2,12 @@
 # ACW & DG 2022
 
 # In situ analysis:
-    # reads in zoop and snow dat files (2D motion files)
+    # reads in zoop dat files (2D motion files)
     # calculates smoothing splines and derivatives for each path 
-    # calculates a flowfield that is temportally interpolated
+    # calculates a PIV flowfield that is temportally interpolated
     # subtracts flowfield from each zoop path
+    # Uses AI to assign a classification to each swimming path 
+    # pickles each anaylsis object as it goes 
 
 # ==========================================================
 
@@ -371,7 +373,7 @@ class Analysis():
         self.roi_frame_num = self.class_rows[0][10]
         #print(self.roi_frame_num)
         
-        # Match ROI to Classification Data
+        # Match ROI to Classification/Size Data
         for p in self.zoop_paths:
             for l in range(len(p.frames)):
                 

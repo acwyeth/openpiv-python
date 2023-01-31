@@ -32,7 +32,7 @@ analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-20 16:
 analysis_lookup_file = 'processed_lookup_table.csv'
 anlaysis_method = 'A'
 
-classification = 'Amphipod'
+classification = 'Copepod'
 
 oxygen_threshold = 2
 time_threshold_early = 7

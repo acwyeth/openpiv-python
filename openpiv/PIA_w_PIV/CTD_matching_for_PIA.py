@@ -166,6 +166,7 @@ class Analysis():
         
         #closest_cast_index = LowerNeighborIndex(cast_dates, self.vid_datnum)
         closest_cast_index = LowerNeighborIndex(cast_dates, str(self.vid_datnum)[0:-6])                             # !!! NEW LINE OF CODE !!!
+        self.full_cast = self.all_ctd_data[closest_cast_index]
         
         # Save chemistry of interest with video (at the parking depth)
             # taking the average of lines 300-400 because there is data where the video is parked (where videos are recorded) and allows enough time for oxygen sensor to warm up

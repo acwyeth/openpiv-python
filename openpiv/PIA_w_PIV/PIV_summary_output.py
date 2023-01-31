@@ -3,6 +3,8 @@
 
 # Script to read in directory of videos, calculate the PIV flowfield (and some other stats), and create .csv file with a flowfield summary
 
+# this script takes days to go through the whole dataset - calling the PIV script 
+
 # ==========================================================
 
 # import packages -----------------------------------
@@ -40,7 +42,7 @@ np.set_printoptions(suppress=True, linewidth=100)
 
 #verbose=False
 
-max_frames = 1000
+max_frames = 10000
 
 # PIV bins (5x4)
 x_bins = np.array([182., 310., 438., 566., 694., 182., 310., 438., 566., 694., 182., 310., 438., 566., 694., 182., 310., 438., 566., 694.])
@@ -172,31 +174,39 @@ class Analysis():
         self.rootdir = rootdir
         self.flow_summary = []
         
+        self.shrink_dirs_processed = []
+        self.shrink_dirs_empty = []
+        self.shrink_dirs_broken = []
+        
         # for each video calculate flow stats/summary
         if rootdir is not None:
             for profile in os.listdir(rootdir):
             #for profile in filter(os.path.isdir, os.listdir(rootdir)):
+                print("Processing profile: " + str(os.path.join(rootdir,profile)))
                 for subdir in os.listdir(os.path.join(rootdir,profile)):
                     if subdir == 'shrink':
                         if len(os.listdir(os.path.join(rootdir,profile,subdir))) < max_frames and len(os.listdir(os.path.join(rootdir,profile,subdir))) > 2:        # 2 bc the ROIs folder and .dat file are going to exist (fixed this downstream so eventually change back to zero)
-                            
-                            # Create flowfield
-                            self.snow_directory = os.path.join(rootdir,profile,subdir)
-                            self.full_flowfield = Flowfield_PIV_Full(self.snow_directory)
-                            
-                            # Calculate Speed (should I do this before or after calculating stats?)
-                            self.flow_speed = np.sqrt((np.array(self.full_flowfield.u_flow_smooth))**2 + (np.array(self.full_flowfield.v_flow_smooth))**2)
-                            
-                            # Calculate Stats
-                            self.flow_speed_mean = self.flow_speed.mean()
-                            self.flow_speed_med = np.median(self.flow_speed)
-                            self.flow_speed_std = self.flow_speed.std()
-                            self.flow_speed_min = self.flow_speed.min()
-                            self.flow_speed_max = self.flow_speed.max()
-                            
-                            file_line = [rootdir, profile, self.flow_speed_mean, self.flow_speed_med, self.flow_speed_std, self.flow_speed_min, self.flow_speed_max]
-                            self.flow_summary.append(file_line)
-                        
+                            try: 
+                                # Create flowfield
+                                self.snow_directory = os.path.join(rootdir,profile,subdir)
+                                self.full_flowfield = Flowfield_PIV_Full(self.snow_directory)
+                                
+                                # Calculate Speed (should I do this before or after calculating stats?)
+                                self.flow_speed = np.sqrt((np.array(self.full_flowfield.u_flow_smooth))**2 + (np.array(self.full_flowfield.v_flow_smooth))**2)
+                                
+                                # Calculate Stats
+                                self.flow_speed_mean = self.flow_speed.mean()
+                                self.flow_speed_med = np.median(self.flow_speed)
+                                self.flow_speed_std = self.flow_speed.std()
+                                self.flow_speed_min = self.flow_speed.min()
+                                self.flow_speed_max = self.flow_speed.max()
+                                
+                                file_line = [rootdir, profile, self.flow_speed_mean, self.flow_speed_med, self.flow_speed_std, self.flow_speed_min, self.flow_speed_max]
+                                self.flow_summary.append(file_line)
+                                
+                                self.shrink_dirs_processed.append(os.path.join(rootdir,profile,subdir))
+                            except: 
+                                self.shrink_dirs_broken.append(os.path.join(rootdir,profile,subdir))
                         else:
                             self.flow_speed_mean = 'NaN'
                             self.flow_speed_med = 'NaN'
@@ -206,13 +216,12 @@ class Analysis():
                             
                             file_line = [rootdir, profile, self.flow_speed_mean, self.flow_speed_med, self.flow_speed_std, self.flow_speed_min, self.flow_speed_max]
                             self.flow_summary.append(file_line)
-                    
-                    #else: 
-                    #    file_line = [rootdir, profile]
-                        
-            #self.flow_summary.append(file_line)
-        
+                            print(file_line)            # debug
+                            
+                            self.shrink_dirs_empty.append(os.path.join(rootdir,profile,subdir))
+                            
         # save a new csv file
+        print('exited loop')
         full_flow_summary = np.array(self.flow_summary)
         summary_file = 'piv_summary_output.csv'
         summary_path = os.path.join(rootdir, summary_file)
@@ -223,8 +232,15 @@ class Analysis():
 
 # testing / run script
 
-#test = Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/fast_test')
+test = Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/fast_test')
+
 piv_final = Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/data2_20180913_extracted')
+
+#test2 = Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/fast_test/1537809127/shrink')  # breaks
+#test3 = Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/fast_test/1501326258/shrink')  # doesnt break
+
+# There are way too many NaNs (307) -- need to figure out what else errors it -- pull up individual videos 
+# figured it out and im an idiot == max frames set to 1000 instead of 10000
 
 
 
