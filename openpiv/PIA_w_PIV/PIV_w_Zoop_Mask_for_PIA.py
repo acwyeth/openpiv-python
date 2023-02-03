@@ -260,6 +260,13 @@ class PIV():
         # print('ROUND 3:')
         # print(u,v,mask)
         
+        # TESTING ACW Feb 2 2023
+        # Masks anything outside of 2 standard deviations
+        u, v, mask = validation.global_std(u, v, std_threshold=1.5)
+        if verbose == True:
+            print('ROUND 2.5: StDev mask')
+            print(u,v,mask)
+        
         # 5) Fills in masked grid values using neighboring windows
         u, v = filters.replace_outliers( u, v, method='localmean', max_iter=10, kernel_size=2)
         if verbose == True:

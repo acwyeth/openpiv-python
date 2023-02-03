@@ -63,7 +63,7 @@ class Video():
         for path in video.zoop_paths:
             # eventually sort for diff sized copepods as well 
             if not np.isnan(path.x_flow_smoothed).any():                        # skip paths with broken smoothing (for now)
-                if self.most_frequent(path.classification) == zoop_class:       # only grab paths that are mostly IDed as copepods 
+                if self.most_frequent(path.classification) == zoop_class:       # only grab paths that are mostly IDed as copepods -- CHANGE THIS! 
                     self.paths_of_interest.append(Path(path=path))              # ONLY paths that meet these qualifiers will end up in self.paths_of_interest 
         
         if len(self.paths_of_interest) > 0:
