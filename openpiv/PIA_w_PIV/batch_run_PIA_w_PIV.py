@@ -35,7 +35,8 @@ import in_situ_analysis_PIVintegration
     # rootdir > list of profiles (profile) > shrink (subdir) > images (img) + ROIs > ROIs_classified
 
 # Use if you want to make a list of shrink directoires within a parent directory
-rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check'
+rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20'
+#rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check'
 #rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/test_folder'
 #rootdir = None
 
@@ -47,8 +48,11 @@ rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check'
 
 # File Names --------------------------------------------------------
 zoop_dat = 'zoop_30-5000.dat'
+
 #classification = 'ROIs_classified/predictions.csv'         # copepod, blob
-classification = 'ROIs_classified6/predictions.csv'
+#classification = 'ROIs_classified6/predictions.csv'
+classification = 'ROIs_classified_25Jan2023/predictions.csv'
+
 CTD = '/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts'
 
 # Ouput Location --------------------------------------------------------
@@ -56,7 +60,8 @@ output_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output'
 
 # -----------------------------
 # this eventually needs to be changed to include the 5000 frame vids
-max_frames = 2000       # skipping the really long videos for now 
+max_frames = 10000
+#max_frames = 2000       # skipping the really long videos for now 
 # -----------------------------
 
 # ==============================================================

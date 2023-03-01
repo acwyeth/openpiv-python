@@ -12,7 +12,7 @@ import in_situ_data_extraction2 as ide
 from importlib import reload
 import matplotlib.pyplot as plt
 
-#reload(ide)
+reload(ide)
 
 # =========================================================================================
 
@@ -28,7 +28,9 @@ import matplotlib.pyplot as plt
 
 # Define parameters:
 
-analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-20 16:26:10.449537'
+#analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-20 16:26:10.449537'
+analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2023-02-10 12:23:49.046774'
+
 analysis_lookup_file = 'processed_lookup_table.csv'
 anlaysis_method = 'A'
 
@@ -94,6 +96,7 @@ test.all_group_data[0].group_avg_cruise_speed
 
 # video level
 test.all_group_data[0].group_vids[1]
+test.all_group_data[0].group_vids[1].profile
 test.all_group_data[0].group_vids[1].paths_of_interest
 test.all_group_data[0].group_vids[1].vid_cruise_speed
 test.all_group_data[0].group_vids[1].vid_avg_cruise_speed
@@ -103,4 +106,40 @@ test.all_group_data[0].group_vids[1].paths_of_interest[0]
 test.all_group_data[0].group_vids[1].paths_of_interest[0].path_length
 test.all_group_data[0].group_vids[1].paths_of_interest[0].path_cruise_speeds
 test.all_group_data[0].group_vids[1].paths_of_interest[0].path_avg_cruise_speed
+
+
+
+# Other tests 
+test.video_dic[test.sorted_videos.iloc[1,1]].zoop_paths[6].classification
+test.video_dic['1535753947'].zoop_paths[6].classification
+
+test.video_dic['1537773747'].zoop_paths[7].classification
+
+def classification_determination(List, classification, thresh):
+    # function to determine if path is cope/amph if above a specified threshold
+    # doesnt need to be most frequent
+    # IN PROGRESS - has not been tested 
+    print(len(List))
+    count = 0
+    for i in List:
+        if i == classification:
+            count = count + 1
+    print(count)
+    print(count/len(List))
+    if count/len(List) > thresh:
+        print('true')
+        return classification
+
+
+class_test = classification_determination(List = test.video_dic['1537773747'].zoop_paths[10].classification, classification= 'Copepod', thresh=0.25)
+
+
+# Copepod size
+test.video_dic['1537773747'].zoop_paths[6].classification
+test.video_dic['1537773747'].zoop_paths[6].length
+test.video_dic['1537773747'].zoop_paths[6].area
+
+
+test.all_group_data[0].group_cruise_speed
+
 

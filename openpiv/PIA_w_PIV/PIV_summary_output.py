@@ -5,6 +5,12 @@
 
 # this script takes days to go through the whole dataset - calling the PIV script 
 
+# Notes about output .csv :
+    # showing stats on total speed (x,y vectors combined)
+    # If there is no shrink folder -- skipped completely 
+    # If there is an empty shrink folder (or a frame max set) -- fills line with 'NaN's
+    # If the PIV analysis fails (either because something isnt work, its a profile, maybe flow is too fast, etc) -- fills line with 'nan's
+
 # ==========================================================
 
 # import packages -----------------------------------
@@ -98,8 +104,13 @@ class Flowfield_PIV_Full():
                     
                     # Imported script that masks zooplankton ROIs from images and computes PIV flow analysis between consecutive frames (if both exist)
                     self.frame_flow = piv.PIV(frame1=self.frame_a, frame2=self.frame_b, save_setting=False, display_setting=False, verbosity_setting=False)
-                    self.flow_layer = self.frame_flow.output     # this is a 20 (5x4 grid) x 5 (x, y, u, v, mask) array
-                
+                    #self.flow_layer = self.frame_flow.output     # this is a 20 (5x4 grid) x 5 (x, y, u, v, mask) array
+                    
+                    #if sum(self.frame_flow.output[4]) < 12:
+                    self.flow_layer = self.frame_flow.output                    # this is a 20 (5x4 grid) x 5 (x, y, u, v, mask) array
+                    #else: 
+                    #    self.flow_layer.fill(np.NaN)
+                        
                 except:
                     print("Broken frame pair: "+str(roi_image_a)+", "+str(roi_image_b))
                     self.flow_layer.fill(np.NaN)
@@ -142,7 +153,7 @@ class Flowfield_PIV_Full():
                 
                 flow_knts = []
                 #flow_knt_smooth = 3
-                flow_knt_smooth = 10
+                flow_knt_smooth = 6
                 flow_num_knts = int((frames[-1] - frames[0])/flow_knt_smooth)
                 flow_knt_space = (frames[-1] - frames[0])/(flow_num_knts+1)
                 for k in range(flow_num_knts):
@@ -200,8 +211,12 @@ class Analysis():
                                 self.flow_speed_std = self.flow_speed.std()
                                 self.flow_speed_min = self.flow_speed.min()
                                 self.flow_speed_max = self.flow_speed.max()
+                                #25th
+                                self.flow_speed_25 = np.percentile(self.flow_speed, 25)
+                                #75th
+                                self.flow_speed_75 = np.percentile(self.flow_speed, 75)
                                 
-                                file_line = [rootdir, profile, self.flow_speed_mean, self.flow_speed_med, self.flow_speed_std, self.flow_speed_min, self.flow_speed_max]
+                                file_line = [rootdir, profile, self.flow_speed_mean, self.flow_speed_med, self.flow_speed_std, self.flow_speed_min, self.flow_speed_max, self.flow_speed_25, self.flow_speed_75]
                                 self.flow_summary.append(file_line)
                                 
                                 self.shrink_dirs_processed.append(os.path.join(rootdir,profile,subdir))
@@ -213,8 +228,10 @@ class Analysis():
                             self.flow_speed_std = 'NaN'
                             self.flow_speed_min = 'NaN'
                             self.flow_speed_max = 'NaN'
+                            self.flow_speed_25 = 'NaN'
+                            self.flow_speed_75 = 'NaN'
                             
-                            file_line = [rootdir, profile, self.flow_speed_mean, self.flow_speed_med, self.flow_speed_std, self.flow_speed_min, self.flow_speed_max]
+                            file_line = [rootdir, profile, self.flow_speed_mean, self.flow_speed_med, self.flow_speed_std, self.flow_speed_min, self.flow_speed_max, self.flow_speed_25, self.flow_speed_75]
                             self.flow_summary.append(file_line)
                             print(file_line)            # debug
                             
@@ -225,7 +242,7 @@ class Analysis():
         full_flow_summary = np.array(self.flow_summary)
         summary_file = 'piv_summary_output.csv'
         summary_path = os.path.join(rootdir, summary_file)
-        np.savetxt(summary_path, full_flow_summary, delimiter=',', fmt='%s', header='directory, profile, mean, median, std, min, max')
+        np.savetxt(summary_path, full_flow_summary, delimiter=',', fmt='%s', header='directory, profile, mean, median, std, min, max, 25th, 75th')
 
 
 # ================================================================================
@@ -234,13 +251,18 @@ class Analysis():
 
 test = Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/fast_test')
 
-piv_final = Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/data2_20180913_extracted')
+#piv_final = Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/data2_20180913_extracted')
+
+
+# SORTED VIDEO GROUPS:
+
+#fps_20 =  Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20')  # finished running
+fps_10 =  Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_10')
+
 
 #test2 = Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/fast_test/1537809127/shrink')  # breaks
 #test3 = Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/fast_test/1501326258/shrink')  # doesnt break
 
-# There are way too many NaNs (307) -- need to figure out what else errors it -- pull up individual videos 
-# figured it out and im an idiot == max frames set to 1000 instead of 10000
 
 
 

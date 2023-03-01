@@ -47,7 +47,8 @@ class Path():
 class Video():
     """ A class to organize swimming data on the video level 
     """
-    def __init__(self, video=None, group=None, zoop_class=None):
+    def __init__(self, video=None, profile=None, group=None, zoop_class=None):
+        self.profile = profile
         self.group = group
         self.paths_of_interest = []
         self.total_frames = 0
@@ -59,13 +60,15 @@ class Video():
         self.frac_jumps_paths = None
         self.avg_jumps_per_path = None
         
-        # sort for paths of interest 
+        # sort for paths of interest (right classification)
         for path in video.zoop_paths:
-            # eventually sort for diff sized copepods as well 
-            if not np.isnan(path.x_flow_smoothed).any():                        # skip paths with broken smoothing (for now)
-                if self.most_frequent(path.classification) == zoop_class:       # only grab paths that are mostly IDed as copepods -- CHANGE THIS! 
-                    self.paths_of_interest.append(Path(path=path))              # ONLY paths that meet these qualifiers will end up in self.paths_of_interest 
-        
+            if not np.isnan(path.x_flow_smoothed).any():                                                                # skip paths with broken smoothing (for now)
+                # Classification filter
+                #if self.most_frequent(path.classification) == zoop_class:                                              # only grab paths that are most freqently IDed as copepods
+                if self.classification_determination(List=path.classification, classification=zoop_class, thresh=0.25) == zoop_class:       # NEEDS TESTING
+                    # ADD SIZE FILTER??
+                    self.paths_of_interest.append(Path(path=path))                                                      # ONLY paths that meet these qualifiers will end up in self.paths_of_interest 
+                    
         if len(self.paths_of_interest) > 0:
             for p in self.paths_of_interest:
                 
@@ -92,8 +95,21 @@ class Video():
             self.avg_jumps_per_path = statistics.mean(self.jumps_per_path)                  # average number of jumps per path in the video
     
     def most_frequent(self, List):
+        # function to return the most common ROI classification from a path
         occurence_count = Counter(List)
         return occurence_count.most_common(1)[0][0]
+    
+    def classification_determination(self, List, classification, thresh):
+        # function to determine if path is cope/amph if above a specified threshold
+        # doesnt need to be most frequent
+        # IN PROGRESS - has not been tested 
+        count = 0
+        for i in List:
+            if i == classification:
+                count = count + 1
+        if count/len(List) > thresh:
+            return classification
+        
 
 class Group():
     """ A class to organize swimming data on the chemical/physical grouping level
@@ -107,7 +123,7 @@ class Group():
         self.paths_per_vid = []
         self.group_jumps = 0
         self.med_paths_per_vid = None
-        self.group_cruise_speed = []
+        self.group_cruise_speed = []                            # list of all the instantensous velocities 
         self.avg_jumps_per_path = []
         self.overall_avg_jumps_per_path = None
         self.group_avg_jump_per_frame = None
@@ -204,7 +220,7 @@ class Analysis():
             group = []
             for v in range(len(self.sorted_videos)):
                 if self.sorted_videos.iloc[v,0] == l:
-                    group.append(Video(video=self.video_dic[self.sorted_videos.iloc[v,1]], group=l, zoop_class=self.classifier))
+                    group.append(Video(video=self.video_dic[self.sorted_videos.iloc[v,1]], profile=self.sorted_videos.iloc[v,1], group=l, zoop_class=self.classifier))
                     self.groups[l] = group
         self.group_list = list(self.groups)
         

@@ -4,7 +4,7 @@
 # In situ analysis:
     # reads in zoop dat files (2D motion files)
     # calculates smoothing splines and derivatives for each path 
-    # calculates a PIV flowfield that is temportally interpolated
+    # calculates a PIV flowfield that is temporally interpolated
     # subtracts flowfield from each zoop path
     # Uses AI to assign a classification to each swimming path 
     # pickles each anaylsis object as it goes 
@@ -169,8 +169,13 @@ class Flowfield_PIV_Full():
                     
                     # Imported script that masks zooplankton ROIs from images and computes PIV flow analysis between consecutive frames (if both exist)
                     self.frame_flow = piv.PIV(frame1=self.frame_a, frame2=self.frame_b, save_setting=False, display_setting=False, verbosity_setting=False)
-                    self.flow_layer = self.frame_flow.output     # this is a 20 (5x4 grid) x 5 (x, y, u, v, mask) array
-                
+                    #self.flow_layer = self.frame_flow.output     # this is a 20 (5x4 grid) x 5 (x, y, u, v, mask) array
+                    
+                    #if sum(self.frame_flow.output[4]) < 12:                    # I tested this filter in Feb and it was too restrictive -- half of the videos couldnt fit a smoothing spline
+                    self.flow_layer = self.frame_flow.output                    # this is a 20 (5x4 grid) x 5 (x, y, u, v, mask) array
+                    #else: 
+                    #    self.flow_layer.fill(np.NaN)
+                        
                 except:
                     print("Broken frame pair: "+str(roi_image_a)+", "+str(roi_image_b))
                     self.flow_layer.fill(np.NaN)
@@ -212,8 +217,8 @@ class Flowfield_PIV_Full():
                 v_grid_thru_time = self.v_flow_raw[:,i,j]
                 
                 flow_knts = []
-                #flow_knt_smooth = 3
-                flow_knt_smooth = 10
+                flow_knt_smooth = 6
+                #flow_knt_smooth = 10
                 flow_num_knts = int((frames[-1] - frames[0])/flow_knt_smooth)
                 flow_knt_space = (frames[-1] - frames[0])/(flow_num_knts+1)
                 for k in range(flow_num_knts):

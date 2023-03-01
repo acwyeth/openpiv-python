@@ -249,10 +249,10 @@ class PIV():
         
         # 4) mask displacement values with s2n (peak2peak) value below threshold (should think about this thresh more)
         #u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.3 )
-        u, v, mask = validation.sig2noise_val( u, v, sig2noise, threshold = 1.1 )       # ACW experiment!
+        u, v, mask_s = validation.sig2noise_val( u, v, sig2noise, threshold = 1.1 )       # ACW experiment!
         if verbose == True:
             print('ROUND 2: S2N mask')
-            print(u,v,mask)
+            print(u,v,mask_s)
         
         # Masks anything outside of these global outliers - not applying right now
             # Note to self: If I want to use this fitler -- need to think about reasonable outliers in out setting
@@ -260,18 +260,28 @@ class PIV():
         # print('ROUND 3:')
         # print(u,v,mask)
         
+        # TESTING ACW Feb 7 2023
+        # classified as outliers and replaced with Nan (Not a Number) if the absolute difference with the local median is greater than a user specified threshold
+        u, v, mask_m = validation.local_median_val(u, v, u_threshold=10, v_threshold=10, size=2)
+        if verbose == True:
+            print('ROUND 2B: Local median mask')
+            print(u,v,mask_m)
+        
         # TESTING ACW Feb 2 2023
         # Masks anything outside of 2 standard deviations
-        u, v, mask = validation.global_std(u, v, std_threshold=1.5)
+        u, v, mask_d = validation.global_std(u, v, std_threshold=1.5)
         if verbose == True:
-            print('ROUND 2.5: StDev mask')
-            print(u,v,mask)
+           print('ROUND 2A: StDev mask')
+           print(u,v,mask_d)
+            
+        # combine the three stages of masking
+        mask = mask_s + mask_m + mask_d                                     # new 2/27/23
         
         # 5) Fills in masked grid values using neighboring windows
         u, v = filters.replace_outliers( u, v, method='localmean', max_iter=10, kernel_size=2)
         if verbose == True:
             print('ROUND 3: Filled outliers')
-            print(u,v)
+            print(u,v,mask)
         
         # 6) Transform Coordinates 
         # Converts coordinate systems from/to the image based / physical based 
