@@ -23,26 +23,102 @@ import pandas as pd
 class Path():
     """A class to organize swimming data on the path level
     """
-    def __init__(self, path=None):
+    def __init__(self, path=None, ID=None):
+        # DEFINE VARIABLES ------------
+        #descriptive info
+        self.path_classifications = path.classification
+        self.path_lengths = path.length
+        self.path_areas = path.area
         self.path_length = len(path.frames)
+        
+        self.path_ID = ID
+        self.path_classification = None
+        self.path_avg_length = None
+        self.path_max_length = None
+        self.path_avg_area = None
+        self.path_max_area = None
+        
+        #speeds
+        self.all_speeds = path.speed
+        self.path_jump_speeds = []
+        self.path_avg_jump_speed = None
         self.path_jumps = 0
+        self.frac_jumps_frames = None
+        
         self.path_cruise_speeds = []
         self.path_avg_cruise_speed = None
-        self.frac_jumps_frames = None
+        self.cruise_frames = 0
+        
+        self.path_drift_speeds = []
+        self.path_avg_drift_speed = None
+        self.drift_frames = 0
+        
+        #transitions
+        self.speed_states = []
+        self.trans_drift_cruise = 0
+        self.trans_drift_jump = 0
+        self.trans_cruise_drift = 0
+        self.trans_cruise_jump = 0
+        self.trans_jump_drift = 0
+        self.trans_jump_cruise = 0
+        
+        # FILL VARIBALES --------------
+        # convert to mm (11.36 pixels = 1 mm)
+        self.path_avg_length = (statistics.mean(self.path_lengths) / 11.36)
+        self.path_max_length = (self.path_lengths.max() / 11.36)
+        self.path_avg_area = (statistics.mean(self.path_areas) / (11.36**2))
+        self.path_max_area = (self.path_areas.max() / (11.36**2))
         
         for l in range(self.path_length):
             if path.speed[l] > 100:
+                self.speed_states.append('J')
                 self.path_jumps = self.path_jumps + 1
+                self.path_jump_speeds.append(path.speed[l])
+            elif path.speed[l] < 3:                                     # drifting speed needs some more thought -- basically an estimate of flow removal error !!!
+                self.speed_states.append('D')
+                self.drift_frames = self.drift_frames + 1
+                self.path_drift_speeds.append(path.speed[l])
             else:
+                self.speed_states.append('C')
+                self.cruise_frames = self.cruise_frames + 1 
                 self.path_cruise_speeds.append(path.speed[l])
+                
+        #print(path.speed)
+        #print(self.speed_states)
         
         if len(self.path_cruise_speeds) > 0:
             self.path_avg_cruise_speed = statistics.mean(self.path_cruise_speeds)
         else:
             self.path_avg_cruise_speed = 'NaN'
         
+        if len(self.path_jump_speeds) > 0:
+            self.path_avg_jump_speed = statistics.mean(self.path_jump_speeds)
+        else:
+            self.path_avg_jump_speed = 'NaN'
+        
         if self.path_length > 0:
             self.frac_jumps_frames = self.path_jumps / self.path_length
+        
+        if len(self.path_drift_speeds) > 0:
+            self.path_avg_drift_speed = statistics.mean(self.path_drift_speeds)
+        else:
+            self.path_avg_drift_speed = 'NaN'
+        
+        # Calculate transition states! 
+        for l in range(self.path_length-1):
+            if self.speed_states[l] == 'D' and self.speed_states[l+1] == 'C':
+                self.trans_drift_cruise = self.trans_drift_cruise + 1
+            elif self.speed_states[l] == 'D' and self.speed_states[l+1] == 'J':
+                self.trans_drift_jump = self.trans_drift_jump + 1
+            elif self.speed_states[l] == 'C' and self.speed_states[l+1] == 'D':
+                self.trans_cruise_drift = self.trans_cruise_drift + 1
+            elif self.speed_states[l] == 'C' and self.speed_states[l+1] == 'J':
+                self.trans_cruise_jump = self.trans_cruise_jump + 1
+            elif self.speed_states[l] == 'J' and self.speed_states[l+1] == 'D':
+                self.trans_jump_drift = self.trans_jump_drift + 1
+            elif self.speed_states[l] == 'J' and self.speed_states[l+1] == 'C':
+                self.trans_jump_cruise = self.trans_jump_cruise + 1
+                
 
 class Video():
     """ A class to organize swimming data on the video level 
@@ -61,13 +137,14 @@ class Video():
         self.avg_jumps_per_path = None
         
         # sort for paths of interest (right classification)
+        path_id_counter = 0
         for path in video.zoop_paths:
+            path_id_counter = path_id_counter + 1
             if not np.isnan(path.x_flow_smoothed).any():                                                                # skip paths with broken smoothing (for now)
                 # Classification filter
                 #if self.most_frequent(path.classification) == zoop_class:                                              # only grab paths that are most freqently IDed as copepods
                 if self.classification_determination(List=path.classification, classification=zoop_class, thresh=0.25) == zoop_class:       # NEEDS TESTING
-                    # ADD SIZE FILTER??
-                    self.paths_of_interest.append(Path(path=path))                                                      # ONLY paths that meet these qualifiers will end up in self.paths_of_interest 
+                    self.paths_of_interest.append(Path(path=path, ID=path_id_counter))                                                      # ONLY paths that meet these qualifiers will end up in self.paths_of_interest 
                     
         if len(self.paths_of_interest) > 0:
             for p in self.paths_of_interest:
@@ -102,7 +179,6 @@ class Video():
     def classification_determination(self, List, classification, thresh):
         # function to determine if path is cope/amph if above a specified threshold
         # doesnt need to be most frequent
-        # IN PROGRESS - has not been tested 
         count = 0
         for i in List:
             if i == classification:
@@ -231,7 +307,7 @@ class Analysis():
         
         # 5) Save output file for plotting
         if save:
-            self.export_csv()
+            self.export_csv_long()
     
     def sort_vids_A(self, vid_dic=None, video=None, oxygen_thres=None):
         '''Sorts videoes into hypoxic and normoxic -- most basic
@@ -345,9 +421,40 @@ class Analysis():
             
         self.df.to_csv(os.path.join(self.rootdir,self.output_file), index=False, sep=',')
         print('Saved output file')
-
-
-# ==================================================================
-
-#test = Analysis(rootdir='/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-08-17 15:47:46.686791', lookup_file='processed_lookup_table.csv',
-#    oxygen_thresh=2, time_thresh=12, depth_thresh=50, classifier='Copepod', save=True, output_file='post_processed_swimming_data.csv')
+        
+    def export_csv_long(self):
+        self.df_long = pd.DataFrame(columns = ['group_id', 'vid_id', 'date_time', 'depth', 'oxygen', 'temp', 'path_id', 'path_length', 'avg_area', 'max_area', 'avg_length', 'max_length', 
+            'avg_cruise_speed', 'cruise_frames', 'avg_jump_speed', 'num_jumps', 'avg_drift_speed', 'drift_frames', 'trans_drift_cruise', 'trans_drift_jump', 'trans_cruise_drift', 'trans_cruise_jump', 'trans_jump_drift', 'trans_jump_cruise'])
+        
+        for group in self.all_group_data:
+            for video in group.group_vids:
+                for path in video.paths_of_interest:
+                    self.df_long = self.df_long.append({
+                        'group_id': group.group, 
+                        'vid_id': video.profile, 
+                        'date_time': self.lookup_table[self.lookup_table[:,0] == video.profile,1][0], 
+                        'depth': self.lookup_table[self.lookup_table[:,0] == video.profile,5][0], 
+                        'oxygen': self.lookup_table[self.lookup_table[:,0] == video.profile,6][0],
+                        'temp': self.lookup_table[self.lookup_table[:,0] == video.profile,7][0],
+                        'path_id': path.path_ID, 
+                        'path_length': path.path_length, 
+                        'avg_area': path.path_avg_area,
+                        'max_area': path.path_max_area,
+                        'avg_length': path.path_avg_length, 
+                        'max_length': path.path_max_length, 
+                        'avg_cruise_speed': path.path_avg_cruise_speed, 
+                        'cruise_frames': path.cruise_frames,
+                        'avg_jump_speed': path.path_avg_jump_speed,
+                        'num_jumps': path.path_jumps, 
+                        'avg_drift_speed': path.path_avg_drift_speed,
+                        'drift_frames': path.drift_frames,
+                        'trans_drift_cruise': path.trans_drift_cruise,
+                        'trans_drift_jump': path.trans_drift_jump,
+                        'trans_cruise_drift': path.trans_cruise_drift,
+                        'trans_cruise_jump': path.trans_cruise_jump,
+                        'trans_jump_drift': path.trans_jump_drift,
+                        'trans_jump_cruise': path.trans_jump_cruise
+                    }, ignore_index = True)
+        
+        self.df_long.to_csv(os.path.join(self.rootdir,self.output_file), index=False, sep=',')
+        print('Saved output file to: ', os.path.join(self.rootdir,self.output_file))

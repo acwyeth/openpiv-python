@@ -8,6 +8,7 @@
 # Execute:
     # 1) cd dg/Wyeth2/GIT_repos_insitu/openpiv-python/openpiv/PIA_w_PIV
     # 2) python3.8 -m batch_run_PIA_w_PIV
+    # 3) script will prompt you to enter a note (hit enter TWICE) and it will save an new timestamped folder in the analysis output directory
 
 # =====================================================================================================
 
@@ -39,6 +40,7 @@ rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20'
 #rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/shrink_files_to_check'
 #rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/test_folder'
 #rootdir = None
+#rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/test_folder'
 
 # Use if you want to manually create a list of directories:
 #dir_list = ['/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_mini']
@@ -51,12 +53,14 @@ zoop_dat = 'zoop_30-5000.dat'
 
 #classification = 'ROIs_classified/predictions.csv'         # copepod, blob
 #classification = 'ROIs_classified6/predictions.csv'
-classification = 'ROIs_classified_25Jan2023/predictions.csv'
+#classification = 'ROIs_classified_25Jan2023/predictions.csv'
+classification = 'ROIs_classified_6MAR2023/predictions.csv'
 
 CTD = '/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts'
 
 # Ouput Location --------------------------------------------------------
 output_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output'
+#output_dir = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output_tests'
 
 # -----------------------------
 # this eventually needs to be changed to include the 5000 frame vids

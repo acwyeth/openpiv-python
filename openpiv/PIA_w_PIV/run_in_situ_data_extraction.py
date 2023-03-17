@@ -29,7 +29,8 @@ reload(ide)
 # Define parameters:
 
 #analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-20 16:26:10.449537'
-analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2023-02-10 12:23:49.046774'
+#analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2023-02-10 12:23:49.046774'
+analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2023-03-09 10:08:09.300375'
 
 analysis_lookup_file = 'processed_lookup_table.csv'
 anlaysis_method = 'A'
@@ -77,7 +78,6 @@ ax1.set(ylabel="Avg Cruise Speed (mm/s)")
 ax2.bar(test.df['Group'],test.df['Avg Jumps per Frame'])
 ax2.set(ylabel="Avg Jumps per Frame")
 
-
 # =========================================================================================
 
 # all data
@@ -118,7 +118,11 @@ test.video_dic['1537773747'].zoop_paths[7].classification
 def classification_determination(List, classification, thresh):
     # function to determine if path is cope/amph if above a specified threshold
     # doesnt need to be most frequent
-    # IN PROGRESS - has not been tested 
+    
+    # NEED: dont include snow in fraction thresholds 
+    #   if its 30% copepod and 70% amphipod you dont want to call it a copepod
+    #   generally need to rethink how I filter 
+    
     print(len(List))
     count = 0
     for i in List:
@@ -143,3 +147,53 @@ test.video_dic['1537773747'].zoop_paths[6].area
 test.all_group_data[0].group_cruise_speed
 
 
+test.all_group_data[0].group_vids[2].paths_of_interest[0].path_classifications
+test.all_group_data[0].group_vids[2].paths_of_interest[0].path_lengths
+test.all_group_data[0].group_vids[2].paths_of_interest[0].path_areas
+
+test.all_group_data[0].group_vids[2].paths_of_interest[0].path_avg_length
+test.all_group_data[0].group_vids[2].paths_of_interest[0].path_avg_area
+
+
+group_test = test.all_group_data[0]
+video_test = test.all_group_data[0].group_vids[3]
+path_test = test.all_group_data[0].group_vids[3].paths_of_interest[0]
+
+group_test.group
+video_test.profile
+test.lookup_table[test.lookup_table[:,0] == video_test.profile,1][0]
+test.lookup_table[test.lookup_table[:,0] == video_test.profile,5][0]
+test.lookup_table[test.lookup_table[:,0] == video_test.profile,6][0]
+test.lookup_table[test.lookup_table[:,0] == video_test.profile,7][0]
+path_test.path_ID # trouble
+path_test.path_length
+path_test.path_max_area # trouble
+path_test.path_max_length # trouble
+path_test.path_avg_cruise_speed
+path_test.path_jumps
+path_test.path_avg_jump_speed # trouble
+
+
+test_trans = ['C', 'C', 'C', 'C', 'C', 'C', 'J', 'C', 'C', 'J', 'J', 'J', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'J', 'J', 'C', 'C', 'C', 'C', 'J', 'C', 'J', 'C', 'J', 'J']
+
+test_trans[1]
+
+if test_trans[1] == 'C' and test_trans[2] == 'C':
+    print('True')
+
+
+
+
+        for l in range(self.path_length):
+            if self.speed_states[l] == 'D' & self.speed_states[l+1] == 'C':
+                self.trans_drift_cruise = self.trans_drift_cruise + 1
+            elif self.speed_states[l] == 'D' & self.speed_states[l+1] == 'J':
+                self.trans_drift_jump = self.trans_drift_jump + 1
+            elif self.speed_states[l] == 'C' & self.speed_states[l+1] == 'D':
+                self.trans_cruise_drift = self.trans_cruise_drift + 1
+            elif self.speed_states[l] == 'C' & self.speed_states[l+1] == 'J':
+                self.trans_cruise_jump = self.trans_cruise_jump + 1
+            elif self.speed_states[l] == 'J' & self.speed_states[l+1] == 'D':
+                self.trans_jump_drift = self.trans_jump_drift + 1
+            elif self.speed_states[l] == 'J' & self.speed_states[l+1] == 'C':
+                self.trans_jump_cruise = self.trans_jump_cruise + 1

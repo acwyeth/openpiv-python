@@ -46,6 +46,16 @@ test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_trackin
     snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test',
     class_file='/home/dg/Wyeth2/IN_SITU_MOTION/shrink_tracking_tests/1537773747/motion_test/ROIs_classified/predictions.csv',
     CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
+    
+test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1537855340/shrink/zoop_30-5000.dat', 
+    snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1537855340/shrink',
+    class_file='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1537855340/shrink/ROIs_classified_6MAR2023/predictions.csv',
+    CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
+
+test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1537773747/shrink/zoop_30-5000.dat', 
+    snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1537773747/shrink',
+    class_file='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1537773747/shrink/ROIs_classified_6MAR2023/predictions.csv',
+    CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
 
 #test.assign_classification()
 test.assign_class_and_size()
@@ -54,6 +64,44 @@ test.remove_flow()
 test.convert_to_physical()
 
 # ---------------------------------------------------------------
+
+test.zoop_paths[33].classification
+test.zoop_paths[33].x_vel_smoothed
+test.zoop_paths[33].x_flow_smoothed
+
+test.zoop_paths[1].u_flow_raw
+test.zoop_paths[1].u_flow_smoothed      # this will change a little 
+test.zoop_paths[1].x_motion
+test.zoop_paths[1].x_motion_phys
+
+test.zoop_paths[33]
+
+# SMOOTH FINAL SPEED VECTOR ?? 
+from scipy.interpolate import UnivariateSpline, LSQUnivariateSpline
+
+path_data = test.zoop_paths[33]
+knts = []
+knt_smooth = 3
+num_knt = int((path_data.frames[-1] - path_data.frames[0])/knt_smooth)
+knt_space = (path_data.frames[-1] - path_data.frames[0])/(num_knt+1)
+for k in range(num_knt):
+    knts.append(knt_space*(k+1) + path_data.frames[0])
+test_spline = LSQUnivariateSpline(path_data.frames, path_data.speed, knts, k=1)
+
+
+test_smooth_output = test_spline.__call__(path_data.frames)
+test.zoop_paths[33].speed
+
+plt.plot(path_data.frames, path_data.speed)
+plt.plot(path_data.frames, test_smooth_output)
+
+plt.plot(test.zoop_paths[1].frames, test.zoop_paths[1].speed_raw)
+plt.plot(test.zoop_paths[1].frames, test.zoop_paths[1].speed)
+
+
+
+# ---------------------------------------------------------------
+
 
 # buidl assing_size metrics
 

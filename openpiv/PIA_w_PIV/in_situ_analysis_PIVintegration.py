@@ -73,6 +73,7 @@ class Path():
         self.y_motion = np.zeros(self.y_pos.size)
         self.x_motion_phys = np.zeros(self.x_pos.size)
         self.y_motion_phys = np.zeros(self.y_pos.size)
+        self.speed_raw = np.zeros(self.y_pos.size)
         self.speed = np.zeros(self.y_pos.size)
         self.classification = np.empty(self.x_pos.size, dtype="object")
         self.classification[:] = 'None'
@@ -192,7 +193,7 @@ class Flowfield_PIV_Full():
         # convert to a 3D numpy array
         self.flowfield_full_np = np.array(self.flowfield_full)
         
-        # call smoothing method
+        # cal smoothing method
         self.smooth_flow()
     
     def smooth_flow(self):
@@ -276,7 +277,8 @@ class Analysis():
         if zoop_paths == None:
             print('Trying to load zoop_dat_file: ',zoop_dat_file)
             try:
-                self.zoop_paths = parse_paths(zoop_dat_file, k_value=1, knots=3)
+                #self.zoop_paths = parse_paths(zoop_dat_file, k_value=1, knots=3)
+                self.zoop_paths = parse_paths(zoop_dat_file, k_value=1, knots=6)            # test!!!  I think I remember needed to keep them this close because of dropped frames?
                 print('Success')
             except:
                 print('****Error in loading zoop_data_file****')
@@ -321,9 +323,9 @@ class Analysis():
                 p.y_flow_smoothed[l] = self.full_flowfield.point_v_flow
             
             # calculate zooplankton motion (PTV of zoop paths minus PIV of snow particles)
-            p.x_motion = (p.x_vel_smoothed - p.x_flow_smoothed)
-            p.y_motion = (p.y_vel_smoothed - p.y_flow_smoothed)
-    
+            p.x_motion = (p.x_vel_smoothed - p.x_flow_smoothed)                     # T3D motion positive = right, PIV motion positive = right
+            p.y_motion = (p.y_vel_smoothed - (-p.y_flow_smoothed))                  # T3D motion positive = down, PIv motion positive = up !!!!!!
+            
     def assign_class_and_size(self):
         '''method to match/assign classifcations to each localization in zoop_paths
         '''
@@ -338,17 +340,17 @@ class Analysis():
             frame_len= 6                                                # frame number is 6 digits long  
             frame_num = line[(frame_tag_ind-frame_len):frame_tag_ind]
             
-            # Save major and minor semi-axis
+            # Save major and minor semi-axis -- all these paramenters are in question
             ell_start_tag = '_e'
             ell_end_tag = '.tif'
             ell = line[line.find(ell_start_tag):line.find(ell_end_tag)]
             ell = ell[2:]
             ell = ell.replace("_", " ")
-            ell_int = [float(word) for word in ell.split()]         # center y, center x, semi minor, semi major, angle 
-            ell_length = ell_int[3] * 2
-            ell_area = ell_int[3] * ell_int[2] * math.pi
+            ell_int = [float(word) for word in ell.split()]         # rotated rectangle struct: center x, center y, width, height, angle (http://amroamroamro.github.io/mexopencv/matlab/cv.fitEllipse.html#:~:text=It%20returns%20the%20rotated%20rectangle%20in%20which%20the%20ellipse%20is%20inscribed.)
+            ell_length = ell_int[3]                                 # length = major axis of the ellipse = height of rotated bounding box
+            ell_area = (ell_int[3]/2) * (ell_int[2]/2) * math.pi    # area = semi major axis of ellipse * semi minor axis of ellipse * pi
     
-            # Save center point 
+            # Save center point -- bounding box with ROI padding -- looks really good
             bbox_start_tag = '_r'     
             bbox_end_tag = 'e'
             bbox = line[line.find(bbox_start_tag):line.find(bbox_end_tag)]
@@ -364,12 +366,26 @@ class Analysis():
             # Center of ROI
             roi_cnt = [(x_beg + (width/2)), (y_beg + (height/2))]
             
+            # Subtract ROI padding                              # ACW CHANGE -- Ellipse isnt reliable
+            height_no_pad = (bbox_int[2] - 10)
+            width_no_pad = (bbox_int[3] - 10)
+            
+            if height_no_pad > width_no_pad:
+                box_length = height_no_pad
+            else:
+                box_length = width_no_pad
+            box_area = (height_no_pad * width_no_pad)
+            
             # Add columns to np_class_rows
             c.append(int(frame_num))
             c.append(roi_cnt[0])
             c.append(roi_cnt[1])
-            c.append(ell_length)
-            c.append(ell_area)
+            
+            # Subbing in until I figure out ellipse issues... 
+            #c.append(ell_length)
+            #c.append(ell_area)
+            c.append(box_length)
+            c.append(box_area)
         
         # Convert to numpy array
         self.np_class_rows = np.array(self.class_rows, dtype=object)
@@ -499,7 +515,27 @@ class Analysis():
             p.y_motion_phys = np.array(p.y_motion_phys) * (57.2 / 650)                                # pixels to mm 
             
             # calculate speed -------------------------------------------------------------
-            p.speed = np.sqrt((np.array(p.x_motion_phys))**2 + (np.array(p.y_motion_phys))**2)
+            #p.speed = np.sqrt((np.array(p.x_motion_phys))**2 + (np.array(p.y_motion_phys))**2)
+            p.speed_raw = np.sqrt((np.array(p.x_motion_phys))**2 + (np.array(p.y_motion_phys))**2)
+            
+            # Add a final smoothing step --------------------------------------------------
+                # ACW added on March 15 2023
+            
+            if (np.isnan(p.speed_raw).any()):
+                p.speed = p.speed_raw               # broken paths will be an array of NaNs -- dont try to smooth these 
+            else:
+                flow_knts_speed = []
+                flow_knt_smooth_speed = 3      # same knt spacing as original zooplankton smoothing
+                #flow_knt_smooth = 10
+                flow_num_knts_speed = int((p.frames[-1] - p.frames[0])/flow_knt_smooth_speed)
+                flow_knt_space_speed = (p.frames[-1] - p.frames[0])/(flow_num_knts_speed+1)
+                for k in range(flow_num_knts_speed):
+                    flow_knts_speed.append(flow_knt_space_speed*(k+1) + p.frames[0])
+                
+                # Same smoothing method as for zooplankton tracks
+                # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.UnivariateSpline.html
+                speed_spline = LSQUnivariateSpline(p.frames, p.speed_raw, flow_knts_speed, k=1)       # calculate spline for observed flow
+                p.speed = speed_spline.__call__(p.frames)
 
     def remove_flow_point(self, plot_flow_motion=True):
             """ a method to calculate the PIV flow for each frame within each zooplankton path and smooth over the path

@@ -196,6 +196,7 @@ class Analysis():
                 print("Processing profile: " + str(os.path.join(rootdir,profile)))
                 for subdir in os.listdir(os.path.join(rootdir,profile)):
                     if subdir == 'shrink':
+                    #if subdir == 'shrink_cropped':
                         if len(os.listdir(os.path.join(rootdir,profile,subdir))) < max_frames and len(os.listdir(os.path.join(rootdir,profile,subdir))) > 2:        # 2 bc the ROIs folder and .dat file are going to exist (fixed this downstream so eventually change back to zero)
                             try: 
                                 # Create flowfield
@@ -242,7 +243,7 @@ class Analysis():
         full_flow_summary = np.array(self.flow_summary)
         summary_file = 'piv_summary_output.csv'
         summary_path = os.path.join(rootdir, summary_file)
-        np.savetxt(summary_path, full_flow_summary, delimiter=',', fmt='%s', header='directory, profile, mean, median, std, min, max, 25th, 75th')
+        np.savetxt(summary_path, full_flow_summary, delimiter=',', fmt='%s', header='directory,profile,mean,median,std,min,max,25th,75th')
 
 
 # ================================================================================
@@ -257,7 +258,10 @@ test = Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/fast_test')
 # SORTED VIDEO GROUPS:
 
 #fps_20 =  Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20')  # finished running
-fps_10 =  Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_10')
+#fps_10 =  Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_10')
+#prof =  Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/full_profile')
+unsorted =  Analysis(rootdir = '/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/unsorted')
+
 
 
 #test2 = Flowfield_PIV_Full(directory='/home/dg/Wyeth2/IN_SITU_MOTION/fast_test/1537809127/shrink')  # breaks
