@@ -56,6 +56,12 @@ test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sor
     snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1537773747/shrink',
     class_file='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1537773747/shrink/ROIs_classified_6MAR2023/predictions.csv',
     CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
+    
+test = is3.Analysis(zoop_dat_file='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/data2_20180913_extracted/1536123352/shrink/zoop_30-5000.dat', 
+    snow_directory='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/data2_20180913_extracted/1536123352/shrink',
+    class_file='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/data2_20180913_extracted/1536123352/shrink/ROIs_New_classified_6MAR2023/predictions.csv',
+    CTD_dir='/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts')
+
 
 #test.assign_classification()
 test.assign_class_and_size()
@@ -65,7 +71,12 @@ test.convert_to_physical()
 
 # ---------------------------------------------------------------
 
-test.zoop_paths[33].classification
+test.zoop_paths[0].classification
+
+test.zoop_paths[0].height / 11.36
+test.zoop_paths[0].width / 11.36
+test.zoop_paths[0].area / (11.36**2)
+
 test.zoop_paths[33].x_vel_smoothed
 test.zoop_paths[33].x_flow_smoothed
 
@@ -95,9 +106,14 @@ test.zoop_paths[33].speed
 plt.plot(path_data.frames, path_data.speed)
 plt.plot(path_data.frames, test_smooth_output)
 
-plt.plot(test.zoop_paths[1].frames, test.zoop_paths[1].speed_raw)
-plt.plot(test.zoop_paths[1].frames, test.zoop_paths[1].speed)
+plt.plot(test.zoop_paths[0].frames, test.zoop_paths[0].speed_raw)
+plt.plot(test.zoop_paths[0].frames, test.zoop_paths[0].speed)
 
+plt.plot(test.zoop_paths[0].frames, test.zoop_paths[0].x_flow_smoothed)
+plt.plot(test.zoop_paths[0].frames, test.zoop_paths[0].y_flow_smoothed)
+
+plt.plot(test.zoop_paths[0].frames, test.zoop_paths[0].x_motion)
+plt.plot(test.zoop_paths[0].frames, test.zoop_paths[0].x_flow_smoothed)
 
 
 # ---------------------------------------------------------------

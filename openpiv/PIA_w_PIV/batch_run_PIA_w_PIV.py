@@ -54,7 +54,8 @@ zoop_dat = 'zoop_30-5000.dat'
 #classification = 'ROIs_classified/predictions.csv'         # copepod, blob
 #classification = 'ROIs_classified6/predictions.csv'
 #classification = 'ROIs_classified_25Jan2023/predictions.csv'
-classification = 'ROIs_classified_6MAR2023/predictions.csv'
+#classification = 'ROIs_classified_6MAR2023/predictions.csv'
+classification = 'ROIs_New_classified_6MAR2023/predictions.csv'
 
 CTD = '/home/dg/Wyeth2/IN_SITU_MOTION/CTD_data/2018_DGC_fullcasts'
 

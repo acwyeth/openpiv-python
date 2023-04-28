@@ -27,12 +27,17 @@ class Path():
         # DEFINE VARIABLES ------------
         #descriptive info
         self.path_classifications = path.classification
-        self.path_lengths = path.length
         self.path_areas = path.area
+        self.path_heights = path.height
+        self.path_widths = path.width
         self.path_length = len(path.frames)
         
         self.path_ID = ID
         self.path_classification = None
+        self.path_avg_height = None
+        self.path_max_height = None
+        self.path_avg_width = None
+        self.path_max_width = None
         self.path_avg_length = None
         self.path_max_length = None
         self.path_avg_area = None
@@ -62,10 +67,35 @@ class Path():
         self.trans_jump_drift = 0
         self.trans_jump_cruise = 0
         
+        self.trans_matrix = None
+        self.cc_prob = None
+        self.cd_prob = None
+        self.cj_prob = None
+        self.dc_prob = None
+        self.dd_prob = None
+        self.dj_prob = None
+        self.jc_prob = None
+        self.jd_prob = None
+        self.jj_prob = None
+        
         # FILL VARIBALES --------------
         # convert to mm (11.36 pixels = 1 mm)
-        self.path_avg_length = (statistics.mean(self.path_lengths) / 11.36)
-        self.path_max_length = (self.path_lengths.max() / 11.36)
+        self.path_avg_height = (statistics.mean(self.path_heights) / 11.36)
+        self.path_max_height = (self.path_heights.max() / 11.36)
+        
+        self.path_avg_width = (statistics.mean(self.path_widths) / 11.36)
+        self.path_max_width = (self.path_widths.max() / 11.36)
+        
+        if self.path_avg_height > self.path_avg_width:
+            self.path_avg_length = self.path_avg_height
+        else:
+            self.path_avg_length = self.path_avg_width
+        
+        if self.path_max_height > self.path_max_width:
+            self.path_max_length = self.path_max_height
+        else:
+            self.path_max_length = self.path_max_width
+        
         self.path_avg_area = (statistics.mean(self.path_areas) / (11.36**2))
         self.path_max_area = (self.path_areas.max() / (11.36**2))
         
@@ -74,7 +104,7 @@ class Path():
                 self.speed_states.append('J')
                 self.path_jumps = self.path_jumps + 1
                 self.path_jump_speeds.append(path.speed[l])
-            elif path.speed[l] < 3:                                     # drifting speed needs some more thought -- basically an estimate of flow removal error !!!
+            elif path.speed[l] < 3:                                     # drifting speed needs some more thought -- basically an estimate of flow removal error 
                 self.speed_states.append('D')
                 self.drift_frames = self.drift_frames + 1
                 self.path_drift_speeds.append(path.speed[l])
@@ -82,9 +112,9 @@ class Path():
                 self.speed_states.append('C')
                 self.cruise_frames = self.cruise_frames + 1 
                 self.path_cruise_speeds.append(path.speed[l])
-                
+                        
         #print(path.speed)
-        #print(self.speed_states)
+        #print(self.speed_states_model)
         
         if len(self.path_cruise_speeds) > 0:
             self.path_avg_cruise_speed = statistics.mean(self.path_cruise_speeds)
@@ -118,7 +148,58 @@ class Path():
                 self.trans_jump_drift = self.trans_jump_drift + 1
             elif self.speed_states[l] == 'J' and self.speed_states[l+1] == 'C':
                 self.trans_jump_cruise = self.trans_jump_cruise + 1
-                
+            
+        # Calculate Swimming State Propabilities
+        self.trans_matrix = self.transition_matrix(self.speed_states)
+        self.cc_prob = self.trans_matrix[0,0]
+        self.cd_prob = self.trans_matrix[0,1]
+        self.cj_prob = self.trans_matrix[0,2]
+        self.dc_prob = self.trans_matrix[1,0]
+        self.dd_prob = self.trans_matrix[1,1]
+        self.dj_prob = self.trans_matrix[1,2]
+        self.jc_prob = self.trans_matrix[2,0]
+        self.jd_prob = self.trans_matrix[2,1]
+        self.jj_prob = self.trans_matrix[2,2]
+    
+    def transition_matrix(self, transitions):
+        # Markov Transition Matrix 
+        # https://stackoverflow.com/questions/46657221/generating-markov-transition-matrix-in-python -- in comments
+        
+        df = pd.DataFrame(transitions)
+        
+        # create a new column with data shifted one space
+        df['shift'] = df[0].shift(-1)
+        # add a count column (for group by function)
+        df['count'] = 1
+        
+        # create dummy rows for each transition so the matrix is complete even if there isn't every transition in each path
+        df.loc[len(df.index)] = ['C', 'C', 0] 
+        df.loc[len(df.index)] = ['C', 'D', 0] 
+        df.loc[len(df.index)] = ['C', 'J', 0] 
+        df.loc[len(df.index)] = ['J', 'C', 0] 
+        df.loc[len(df.index)] = ['J', 'D', 0] 
+        df.loc[len(df.index)] = ['J', 'J', 0] 
+        df.loc[len(df.index)] = ['D', 'C', 0] 
+        df.loc[len(df.index)] = ['D', 'D', 0] 
+        df.loc[len(df.index)] = ['D', 'J', 0] 
+        
+        # groupby and then unstack, fill the zeros
+        trans_mat = df.groupby([0, 'shift']).count().unstack().fillna(0)
+        
+        # remove each of the dummy counts
+        trans_mat = trans_mat - 1 
+        
+        # normalise by occurences and save values to get transition matrix
+        trans_matrix_final = trans_mat.div(trans_mat.sum(axis=1), axis=0).values
+        # convert NaNs to 0
+        trans_matrix_final[np.isnan(trans_matrix_final)] = 0
+        
+        return trans_matrix_final 
+            # NOTES ON OUTPUT
+                #   C D J
+                # C
+                # D
+                # J
 
 class Video():
     """ A class to organize swimming data on the video level 
@@ -126,6 +207,7 @@ class Video():
     def __init__(self, video=None, profile=None, group=None, zoop_class=None):
         self.profile = profile
         self.group = group
+        self.num_all_paths = len(video.zoop_paths)
         self.paths_of_interest = []
         self.total_frames = 0
         self.vid_jumps = 0
@@ -142,8 +224,8 @@ class Video():
             path_id_counter = path_id_counter + 1
             if not np.isnan(path.x_flow_smoothed).any():                                                                # skip paths with broken smoothing (for now)
                 # Classification filter
-                #if self.most_frequent(path.classification) == zoop_class:                                              # only grab paths that are most freqently IDed as copepods
-                if self.classification_determination(List=path.classification, classification=zoop_class, thresh=0.25) == zoop_class:       # NEEDS TESTING
+                if self.most_frequent(path.classification) == zoop_class:                                              # only grab paths that are most freqently IDed as copepods
+                #if self.classification_determination(List=path.classification, classification=zoop_class, thresh=0.25) == zoop_class:       # NEEDS TESTING
                     self.paths_of_interest.append(Path(path=path, ID=path_id_counter))                                                      # ONLY paths that meet these qualifiers will end up in self.paths_of_interest 
                     
         if len(self.paths_of_interest) > 0:
@@ -207,6 +289,26 @@ class Group():
         self.vids_w_jumps = 0
         self.frac_jumps_vids = None
         
+        self.group_speed_states = []
+        self.trans_matrix = []
+        self.trans_matrix_prob = []
+        
+        self.group_speed_states1 = []
+        self.group_speed_states2 = []
+        self.group_speed_states3 = []
+        self.group_speed_states4 = []
+        self.group_speed_states10 = []
+        self.trans_matrix1 = []
+        self.trans_matrix_prob1 = []
+        self.trans_matrix2 = []
+        self.trans_matrix_prob2 = []
+        self.trans_matrix3 = []
+        self.trans_matrix_prob3 = []
+        self.trans_matrix4 = []
+        self.trans_matrix_prob4 = []
+        self.trans_matrix10 = []
+        self.trans_matrix_prob10 = []
+        
         if self.total_vids > 0: 
             for v in self.group_vids:
                 # calculate total paths and frames
@@ -251,11 +353,151 @@ class Group():
                 self.overall_avg_jumps_per_path = statistics.mean(self.avg_jumps_per_path)      
             else:
                 self.overall_avg_jumps_per_path = 'NaN'
+            
+            # GROUP TRANSITION MATRIX
+            for v in self.group_vids:
+                for p in v.paths_of_interest:
+                    self.group_speed_states.append(p.speed_states)      # all speed states from each path of interest for each group
+            df_total = pd.DataFrame()
+            for p in self.group_speed_states:
+                df = pd.DataFrame(p)
+                df['shift'] = df[0].shift(-1)
+                df['count'] = 1
+                df_total = pd.concat([df_total, df])
+            self.trans_matrix = df_total.groupby([0, 'shift']).count().unstack().fillna(0)
+            self.trans_matrix_prob = self.trans_matrix.div(self.trans_matrix.sum(axis=1), axis=0).values
+            
+            # GROUP TRANSITION MATRIX -- binned by size
+                # this is a little hacky bc size bins aren't build into this stage of the anaylysis -- dont want to rework it for just this metric
+            for v in self.group_vids:
+                for p in v.paths_of_interest:
+                    if p.path_avg_length <= 1:
+                        self.group_speed_states1.append(p.speed_states)
+                    elif p.path_avg_length > 1 and p.path_avg_length <=2:
+                        self.group_speed_states2.append(p.speed_states)
+                    elif p.path_avg_length > 2 and p.path_avg_length <=3:
+                        self.group_speed_states3.append(p.speed_states)
+                    elif p.path_avg_length > 3 and p.path_avg_length <=4:
+                        self.group_speed_states4.append(p.speed_states)
+                    elif p.path_avg_length > 4 and p.path_avg_length <=10:
+                        self.group_speed_states10.append(p.speed_states)
+                        
+            #if len(self.group_speed_states1) > 0:
+            df_total = pd.DataFrame()
+            for p in self.group_speed_states1:
+                df = pd.DataFrame(p)
+                df['shift'] = df[0].shift(-1)
+                df['count'] = 1
+                df_total = pd.concat([df_total, df])
+            
+            df_total.loc[len(df_total.index)] = ['C', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['C', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['C', 'J', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'J', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'J', 0]
+            self.trans_matrix1 = df_total.groupby([0, 'shift']).count().unstack().fillna(0)
+            self.trans_matrix1 = self.trans_matrix1 - 1
+            self.trans_matrix_prob1 = self.trans_matrix1.div(self.trans_matrix1.sum(axis=1), axis=0).values
+            self.trans_matrix_prob1[np.isnan(self.trans_matrix_prob1)] = 0
+                
+            #if len(self.group_speed_states2) > 0:
+            df_total = pd.DataFrame()
+            for p in self.group_speed_states2:
+                df = pd.DataFrame(p)
+                df['shift'] = df[0].shift(-1)
+                df['count'] = 1
+                df_total = pd.concat([df_total, df])
+            
+            df_total.loc[len(df_total.index)] = ['C', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['C', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['C', 'J', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'J', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'J', 0]
+            self.trans_matrix2 = df_total.groupby([0, 'shift']).count().unstack().fillna(0)
+            self.trans_matrix2 = self.trans_matrix2 - 1
+            self.trans_matrix_prob2 = self.trans_matrix2.div(self.trans_matrix2.sum(axis=1), axis=0).values
+            self.trans_matrix_prob2[np.isnan(self.trans_matrix_prob2)] = 0
+            
+            #if len(self.group_speed_states3) > 0:
+            df_total = pd.DataFrame()
+            for p in self.group_speed_states3:
+                df = pd.DataFrame(p)
+                df['shift'] = df[0].shift(-1)
+                df['count'] = 1
+                df_total = pd.concat([df_total, df])
+            
+            df_total.loc[len(df_total.index)] = ['C', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['C', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['C', 'J', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'J', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'J', 0]
+            self.trans_matrix3 = df_total.groupby([0, 'shift']).count().unstack().fillna(0)
+            self.trans_matrix3 = self.trans_matrix3 - 1
+            self.trans_matrix_prob3 = self.trans_matrix3.div(self.trans_matrix3.sum(axis=1), axis=0).values
+            self.trans_matrix_prob3[np.isnan(self.trans_matrix_prob3)] = 0
+            
+            #if len(self.group_speed_states4) > 0:
+            df_total = pd.DataFrame()
+            for p in self.group_speed_states4:
+                df = pd.DataFrame(p)
+                df['shift'] = df[0].shift(-1)
+                df['count'] = 1
+                df_total = pd.concat([df_total, df])
+            
+            df_total.loc[len(df_total.index)] = ['C', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['C', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['C', 'J', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['J', 'J', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'C', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'D', 0]
+            df_total.loc[len(df_total.index)] = ['D', 'J', 0]
+            self.trans_matrix4 = df_total.groupby([0, 'shift']).count().unstack().fillna(0)
+            self.trans_matrix4 = self.trans_matrix4 - 1
+            self.trans_matrix_prob4 = self.trans_matrix4.div(self.trans_matrix4.sum(axis=1), axis=0).values
+            self.trans_matrix_prob4[np.isnan(self.trans_matrix_prob4)] = 0
+            
+            if len(self.group_speed_states10) > 0:
+                df_total = pd.DataFrame()
+                for p in self.group_speed_states10:
+                    df = pd.DataFrame(p)
+                    df['shift'] = df[0].shift(-1)
+                    df['count'] = 1
+                    df_total = pd.concat([df_total, df])
+                
+                df_total.loc[len(df_total.index)] = ['C', 'C', 0]
+                df_total.loc[len(df_total.index)] = ['C', 'D', 0]
+                df_total.loc[len(df_total.index)] = ['C', 'J', 0]
+                df_total.loc[len(df_total.index)] = ['J', 'C', 0]
+                df_total.loc[len(df_total.index)] = ['J', 'D', 0]
+                df_total.loc[len(df_total.index)] = ['J', 'J', 0]
+                df_total.loc[len(df_total.index)] = ['D', 'C', 0]
+                df_total.loc[len(df_total.index)] = ['D', 'D', 0]
+                df_total.loc[len(df_total.index)] = ['D', 'J', 0]
+                self.trans_matrix10 = df_total.groupby([0, 'shift']).count().unstack().fillna(0)
+                self.trans_matrix10 = self.trans_matrix10 - 1
+                self.trans_matrix_prob10 = self.trans_matrix10.div(self.trans_matrix10.sum(axis=1), axis=0).values
+                self.trans_matrix_prob10[np.isnan(self.trans_matrix_prob10)] = 0
+            else:
+                self.trans_matrix_prob10 = pd.DataFrame(np.nan, index=[0, 1, 2], columns=['0', 'shift','count']).values
 
 class Analysis():
     """ A class to read in a directory of pickled videos, sort them by designated chemical/physical conditions, and store swimming data on the path, video, and group level
     """
-    def __init__(self, rootdir=None, lookup_file=None, group_method=None, oxygen_thresh=None, time_thresh1=None, time_thresh2=None, depth_thresh=None, classifier=None, save=True, output_file=None):
+    def __init__(self, rootdir=None, lookup_file=None, group_method=None, oxygen_thresh=None, time_thresh1=None, time_thresh2=None, depth_thresh=None, classifier=None, save=True, output_file=None, metadata_file=None, markov_file=None):
         self.rootdir = rootdir
         self.lookup_table = np.genfromtxt(os.path.join(self.rootdir,lookup_file), dtype = str, delimiter=',', skip_header=0)
         self.video_dic = {}
@@ -265,6 +507,8 @@ class Analysis():
         self.depth_thresh = depth_thresh
         self.classifier = classifier
         self.output_file = output_file
+        self.metadata_file = metadata_file
+        self.markov_file = markov_file
         
         # 1) Read in pickled video analyses 
         for file in os.listdir(self.rootdir):
@@ -308,6 +552,8 @@ class Analysis():
         # 5) Save output file for plotting
         if save:
             self.export_csv_long()
+            self.export_metadata()
+            self.export_markov()
     
     def sort_vids_A(self, vid_dic=None, video=None, oxygen_thres=None):
         '''Sorts videoes into hypoxic and normoxic -- most basic
@@ -423,8 +669,9 @@ class Analysis():
         print('Saved output file')
         
     def export_csv_long(self):
-        self.df_long = pd.DataFrame(columns = ['group_id', 'vid_id', 'date_time', 'depth', 'oxygen', 'temp', 'path_id', 'path_length', 'avg_area', 'max_area', 'avg_length', 'max_length', 
-            'avg_cruise_speed', 'cruise_frames', 'avg_jump_speed', 'num_jumps', 'avg_drift_speed', 'drift_frames', 'trans_drift_cruise', 'trans_drift_jump', 'trans_cruise_drift', 'trans_cruise_jump', 'trans_jump_drift', 'trans_jump_cruise'])
+        self.df_long = pd.DataFrame(columns = ['group_id', 'vid_id', 'vid_length', 'date_time', 'depth', 'oxygen', 'temp', 'path_id', 'path_length', 'avg_area', 'max_area', 'avg_height', 'max_height', 'avg_width', 'max_width', 
+            'avg_cruise_speed', 'cruise_frames', 'avg_jump_speed', 'num_jumps', 'avg_drift_speed', 'drift_frames', 'trans_drift_cruise', 'trans_drift_jump', 'trans_cruise_drift', 'trans_cruise_jump', 'trans_jump_drift', 'trans_jump_cruise',
+            'CC_prob', 'CD_prob', 'CJ_prob', 'DC_prob', 'DD_prob', 'DJ_prob', 'JC_prob', 'JD_prob', 'JJ_prob'])
         
         for group in self.all_group_data:
             for video in group.group_vids:
@@ -432,6 +679,7 @@ class Analysis():
                     self.df_long = self.df_long.append({
                         'group_id': group.group, 
                         'vid_id': video.profile, 
+                        'vid_length': self.lookup_table[self.lookup_table[:,0] == video.profile,3][0],
                         'date_time': self.lookup_table[self.lookup_table[:,0] == video.profile,1][0], 
                         'depth': self.lookup_table[self.lookup_table[:,0] == video.profile,5][0], 
                         'oxygen': self.lookup_table[self.lookup_table[:,0] == video.profile,6][0],
@@ -440,8 +688,10 @@ class Analysis():
                         'path_length': path.path_length, 
                         'avg_area': path.path_avg_area,
                         'max_area': path.path_max_area,
-                        'avg_length': path.path_avg_length, 
-                        'max_length': path.path_max_length, 
+                        'avg_height': path.path_avg_height, 
+                        'max_height': path.path_max_height, 
+                        'avg_width': path.path_avg_width, 
+                        'max_width': path.path_max_width, 
                         'avg_cruise_speed': path.path_avg_cruise_speed, 
                         'cruise_frames': path.cruise_frames,
                         'avg_jump_speed': path.path_avg_jump_speed,
@@ -453,8 +703,70 @@ class Analysis():
                         'trans_cruise_drift': path.trans_cruise_drift,
                         'trans_cruise_jump': path.trans_cruise_jump,
                         'trans_jump_drift': path.trans_jump_drift,
-                        'trans_jump_cruise': path.trans_jump_cruise
+                        'trans_jump_cruise': path.trans_jump_cruise,
+                        'CC_prob': path.cc_prob,
+                        'CD_prob': path.cd_prob,
+                        'CJ_prob': path.cj_prob,
+                        'DC_prob': path.dc_prob,
+                        'DD_prob': path.dd_prob,
+                        'DJ_prob': path.dj_prob,
+                        'JC_prob': path.jc_prob,
+                        'JD_prob': path.jd_prob,
+                        'JJ_prob': path.jj_prob
                     }, ignore_index = True)
         
         self.df_long.to_csv(os.path.join(self.rootdir,self.output_file), index=False, sep=',')
         print('Saved output file to: ', os.path.join(self.rootdir,self.output_file))
+    
+    def export_metadata(self):
+        """ export a metadata file, each row is a video (vid, group, path length, depth, oxy, temp, total paths, paths of interest)
+            I think Ill need something like this for accurate count plots
+            Right now videos that dont contain a path of interest are essentially skipped
+        """
+        self.meta_df = pd.DataFrame(columns = ['vid_id', 'group_id', 'vid_length', 'depth', 'oxygen', 'temp', 'total_paths', 'paths_of_interest', 'frames_of_interest']) 
+        
+        for group in self.all_group_data:
+            for video in group.group_vids:
+                self.meta_df = self.meta_df.append({
+                    'vid_id': video.profile,
+                    'group_id': group.group,
+                    'vid_length': self.lookup_table[self.lookup_table[:,0] == video.profile,3][0],
+                    'depth': self.lookup_table[self.lookup_table[:,0] == video.profile,5][0], 
+                    'oxygen': self.lookup_table[self.lookup_table[:,0] == video.profile,6][0],
+                    'temp': self.lookup_table[self.lookup_table[:,0] == video.profile,7][0],
+                    'total_paths': video.num_all_paths,
+                    'paths_of_interest': len(video.paths_of_interest),
+                    'frames_of_interest': video.total_frames
+                }, ignore_index = True)
+        
+        self.meta_df.to_csv(os.path.join(self.rootdir,self.metadata_file), index=False, sep=',')
+        print('Saved metadata file to: ', os.path.join(self.rootdir,self.metadata_file))
+    
+    def export_markov(self):
+        """export csv with group markov model matrices. things are a little messy here bc the size classes arent built in yet
+        """
+        self.markov_df = pd.DataFrame(columns = ['group_id', 'size_bin','n_paths', 'CC', 'CD', 'CJ', 'DC', 'DD', 'DJ', 'JC', 'JD', 'JJ']) 
+        
+        for group in self.all_group_data:
+            # manually creating size classes here cause I dont want to build it in for this 
+            bin_name = ['0-1','1-2','2-3','3-4','4-10']
+            bin_len = [len(group.group_speed_states1),len(group.group_speed_states2),len(group.group_speed_states3),len(group.group_speed_states4),len(group.group_speed_states10)]
+            bin_obj = [group.trans_matrix_prob1, group.trans_matrix_prob2, group.trans_matrix_prob3, group.trans_matrix_prob4, group.trans_matrix_prob10]
+            for i in range(len(bin_name)):
+                self.markov_df = self.markov_df.append({
+                    'group_id': group.group,
+                    'size_bin': bin_name[i],
+                    'n_paths': bin_len[i],
+                    'CC': bin_obj[i][0,0],
+                    'CD': bin_obj[i][0,1],
+                    'CJ': bin_obj[i][0,2],
+                    'DC': bin_obj[i][1,0],
+                    'DD': bin_obj[i][1,1],
+                    'DJ': bin_obj[i][1,2],
+                    'JC': bin_obj[i][2,0],
+                    'JD': bin_obj[i][2,1],
+                    'JJ': bin_obj[i][2,2]
+                }, ignore_index = True)
+                
+        self.markov_df.to_csv(os.path.join(self.rootdir,self.markov_file), index=False, sep=',')
+        print('Saved markov file to: ', os.path.join(self.rootdir,self.markov_file))

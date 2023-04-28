@@ -244,8 +244,13 @@ for i in range(len(full_flowfield.u_flow_smooth)):
 # ---------------------------------
 
 # plot flow (raw and smooth) within a single grid (all each grid) through time
+full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1537855340/shrink')
+    # cant bridge 20 frame gap!! Even thought I tell it to ignore 0s  
+    
+full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1536309183/shrink_mini')
 
-full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/fast_test/1501326258/shrink')
+
+full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/fast_test/1501326258/test')
     # 590 frames and consistent flow to the left
     # some peaks around frame 100 -- its something coming through that must not be masked well (only in the corner grid it swims through)
     # otherwise I think the smoothing looks reasonable -- and its obviously needed in some places

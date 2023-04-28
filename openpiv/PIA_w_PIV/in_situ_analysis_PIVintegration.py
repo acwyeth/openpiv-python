@@ -79,7 +79,8 @@ class Path():
         self.classification[:] = 'None'
         self.delta_time_corrected = np.zeros(self.x_pos.size)
         self.area = np.zeros(self.x_pos.size)
-        self.length = np.zeros(self.x_pos.size)
+        self.height = np.zeros(self.x_pos.size)
+        self.width = np.zeros(self.x_pos.size)
         
         if verbose:
             print('frames =',self.frames)
@@ -277,8 +278,8 @@ class Analysis():
         if zoop_paths == None:
             print('Trying to load zoop_dat_file: ',zoop_dat_file)
             try:
-                #self.zoop_paths = parse_paths(zoop_dat_file, k_value=1, knots=3)
-                self.zoop_paths = parse_paths(zoop_dat_file, k_value=1, knots=6)            # test!!!  I think I remember needed to keep them this close because of dropped frames?
+                self.zoop_paths = parse_paths(zoop_dat_file, k_value=1, knots=3)
+                #self.zoop_paths = parse_paths(zoop_dat_file, k_value=1, knots=6)            # test!!!  I think I remember needed to keep them this close because of dropped frames?
                 print('Success')
             except:
                 print('****Error in loading zoop_data_file****')
@@ -340,7 +341,53 @@ class Analysis():
             frame_len= 6                                                # frame number is 6 digits long  
             frame_num = line[(frame_tag_ind-frame_len):frame_tag_ind]
             
+            # Save bounding box with ROI padding 
+                # Not using this for ROI sizing anymore but still important in matching the ROIs with the classification output
+            rbox_start_tag = '_r'     
+            rbox_end_tag = 'a'
+            rbox = line[line.find(rbox_start_tag):line.find(rbox_end_tag)]
+            rbox = rbox[2:-1]                                                   # remove _r and _ from beginning and end of string    
+            rbox = rbox.replace("_", " ")
+            rbox_int = [int(word) for word in rbox.split() if word.isdigit()]            
+            # Explicitly define coordinate here (i and j are switched and coordinate system starts at top left corner)
+                # This is unneccarily long but hopefully will make things clearer down the line
+            x_beg = rbox_int[1]
+            y_beg = rbox_int[0]
+            height = rbox_int[2]
+            width = rbox_int[3]
+            # Center of ROI
+            roi_cnt = [(x_beg + (width/2)), (y_beg + (height/2))]
+            
+            # Save contour area 
+                # Using this as area estimate -- it is really accurate, fitted contour of the ROI
+            area_start_tag = '_a'
+            area_end_tag = 'b'
+            cont_area = line[line.find(area_start_tag):line.find(area_end_tag)]
+            cont_area = cont_area[2:-1]
+            
+            # Save BoundingBox 
+                # Not using for anything right now, but storing just in case 
+            bbox_start_tag = '_b'     
+            bbox_end_tag = 'm'
+            bbox = line[line.find(bbox_start_tag):line.find(bbox_end_tag)]
+            bbox = bbox[2:-1]
+            bbox = bbox.replace("_", " ")
+            bbox_int = [int(word) for word in bbox.split() if word.isdigit()]                   # x, y, width, height 
+            
+            # Save MinAreaRect
+                # Going to use for length/width of ROI
+            minrect_start_tag = '_m'     
+            minrect_end_tag = 'e'
+            minrect = line[line.find(minrect_start_tag):line.find(minrect_end_tag)]
+            minrect = minrect[2:-1]
+            minrect = minrect.replace("_", " ")
+            #minrect_int = [int(word) for word in minrect.split() if word.isdigit()]             # not working bc some of the angles are negative
+            minrect_int = minrect.split()                                                        # ((center(x,y), (w,h), angle)
+            minrect_height = minrect_int[3]
+            minrect_width = minrect_int[2]
+            
             # Save major and minor semi-axis -- all these paramenters are in question
+                # Still saving this but it's acting up -- dont use for area/length
             ell_start_tag = '_e'
             ell_end_tag = '.tif'
             ell = line[line.find(ell_start_tag):line.find(ell_end_tag)]
@@ -349,43 +396,14 @@ class Analysis():
             ell_int = [float(word) for word in ell.split()]         # rotated rectangle struct: center x, center y, width, height, angle (http://amroamroamro.github.io/mexopencv/matlab/cv.fitEllipse.html#:~:text=It%20returns%20the%20rotated%20rectangle%20in%20which%20the%20ellipse%20is%20inscribed.)
             ell_length = ell_int[3]                                 # length = major axis of the ellipse = height of rotated bounding box
             ell_area = (ell_int[3]/2) * (ell_int[2]/2) * math.pi    # area = semi major axis of ellipse * semi minor axis of ellipse * pi
-    
-            # Save center point -- bounding box with ROI padding -- looks really good
-            bbox_start_tag = '_r'     
-            bbox_end_tag = 'e'
-            bbox = line[line.find(bbox_start_tag):line.find(bbox_end_tag)]
-            bbox = bbox[2:-1]                                           # remove _r and _ from beginning and end of string    
-            bbox = bbox.replace("_", " ")
-            bbox_int = [int(word) for word in bbox.split() if word.isdigit()]            
-            # Explicitly define coordinate here (i and j are switched and coordinate system starts at top left corner)
-                # This is unneccarily long but hopefully will make things clearer down the line
-            x_beg = bbox_int[1]
-            y_beg = bbox_int[0]
-            height = bbox_int[2]
-            width = bbox_int[3]
-            # Center of ROI
-            roi_cnt = [(x_beg + (width/2)), (y_beg + (height/2))]
-            
-            # Subtract ROI padding                              # ACW CHANGE -- Ellipse isnt reliable
-            height_no_pad = (bbox_int[2] - 10)
-            width_no_pad = (bbox_int[3] - 10)
-            
-            if height_no_pad > width_no_pad:
-                box_length = height_no_pad
-            else:
-                box_length = width_no_pad
-            box_area = (height_no_pad * width_no_pad)
             
             # Add columns to np_class_rows
             c.append(int(frame_num))
             c.append(roi_cnt[0])
             c.append(roi_cnt[1])
-            
-            # Subbing in until I figure out ellipse issues... 
-            #c.append(ell_length)
-            #c.append(ell_area)
-            c.append(box_length)
-            c.append(box_area)
+            c.append(minrect_height)              # MinAreaRect height
+            c.append(minrect_width)               # MinAreaRect width
+            c.append(cont_area)                   # contour area
         
         # Convert to numpy array
         self.np_class_rows = np.array(self.class_rows, dtype=object)
@@ -404,12 +422,15 @@ class Analysis():
                 y_pos = p.y_pos[l]
                 
                 # Pull ROI infomration from frame number
-                self.rois = self.np_class_rows[(self.np_class_rows[:,-5]) == self.frame, :]   # save lines of np_class_rows at correct frame
-                self.roi = self.rois[(self.rois[:,-4] < (x_pos+2)) & (self.rois[:,-4] > (x_pos-2)) & (self.rois[:,-3] < (y_pos+2)) & (self.rois[:,-3] > (y_pos-2)),:]         # if the center of the ROI is within sq pixels of the localization -- match it
+                #self.rois = self.np_class_rows[(self.np_class_rows[:,-5]) == self.frame, :]   # save lines of np_class_rows at correct frame
+                #self.roi = self.rois[(self.rois[:,-4] < (x_pos+2)) & (self.rois[:,-4] > (x_pos-2)) & (self.rois[:,-3] < (y_pos+2)) & (self.rois[:,-3] > (y_pos-2)),:]         # if the center of the ROI is within sq pixels of the localization -- match it
+                self.rois = self.np_class_rows[(self.np_class_rows[:,-6]) == self.frame, :]   # save lines of np_class_rows at correct frame
+                self.roi = self.rois[(self.rois[:,-5] < (x_pos+2)) & (self.rois[:,-5] > (x_pos-2)) & (self.rois[:,-4] < (y_pos+2)) & (self.rois[:,-4] > (y_pos-2)),:]         # if the center of the ROI is within sq pixels of the localization -- match it
                 
                 if len(self.roi) == 1:
                     p.classification[l] = self.roi[:,4][0]
-                    p.length[l] = self.roi[:,-2][0]
+                    p.height[l] = self.roi[:,-3][0]
+                    p.width[l] = self.roi[:,-2][0]
                     p.area[l] = self.roi[:,-1][0]
                     #print('SUCCESS: Match found')              # only printing errors right now to reduce output
                 if len(self.roi) == 0:
