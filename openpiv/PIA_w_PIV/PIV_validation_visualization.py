@@ -171,6 +171,7 @@ class Flowfield_PIV_Full():
                 #flow_knt_smooth = 10                                                      # this was the setting coming into the PIV summary, I am now wondering if this is too wide, gonna play
                 #flow_knt_smooth = 4
                 flow_knt_smooth = 6
+                #flow_knt_smooth = 15                                                        # throwing a hail mary -- is this going to be worse than not being able to bridge so many gaps
                 flow_num_knts = int((frames[-1] - frames[0])/flow_knt_smooth)
                 flow_knt_space = (frames[-1] - frames[0])/(flow_num_knts+1)
                 for k in range(flow_num_knts):
@@ -220,6 +221,9 @@ test.output[4] #mask, 1 == maskr
 # from piv t3d output
 test = piv.PIV(frame1='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1537850031/shrink/SHRINK-16-SPC-UW-1537850039868596-3391239109-000000.tif', frame2='/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1537850031/shrink/SHRINK-16-SPC-UW-1537850039905570-3391289113-000001.tif', save_setting=False, display_setting=True, verbosity_setting=True)
 
+# FR 10 
+test = piv.PIV(frame1='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1532718117/shrink_crop/SHRINK-55-SPC-UW-1532718135380289-180812087242-000072.tif', frame2='/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1532718117/shrink_crop/SHRINK-55-SPC-UW-1532718135505350-180812187250-000073.tif',save_setting=False, display_setting=True, verbosity_setting=True)
+
 # ---------------------------------
 
 # vector array visualization 
@@ -244,7 +248,8 @@ for i in range(len(full_flowfield.u_flow_smooth)):
 # ---------------------------------
 
 # plot flow (raw and smooth) within a single grid (all each grid) through time
-full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1537855340/shrink')
+full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1537855340/shrink')
+full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1537773747/shrink')
     # cant bridge 20 frame gap!! Even thought I tell it to ignore 0s  
     
 full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1536309183/shrink_mini')
@@ -282,10 +287,32 @@ full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/video_data/s
     # slowly up with some sloshing, very slightly towards the left
 full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1535973586/shrink')
 
-# from piv_t3d file
-full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1537850031/shrink')
-    # the raw flowfield exists but the smoothing spline doesnt start until like frame 800 -- not really sure what's up with that 
-full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_20/1535533533/shrink')
+# FRAME RATE 10 folder
+full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/video_data/sorted_videos/fps_10/1532718117/shrink')
+    # PIV summary fails but Im not sure why. In watching the video it looks reasonable to track 
+full_flowfield = Flowfield_PIV_Full('/home/dg/Wyeth2/IN_SITU_MOTION/test_folder/1532718117/shrink_crop')
+
+
+u_grid_thru_time = full_flowfield.u_flow_raw[:,1,1]
+frames = list(range(len(u_grid_thru_time)))
+flow_knts = []
+flow_knt_smooth = 6
+flow_num_knts = int((frames[-1] - frames[0])/flow_knt_smooth)
+flow_knt_space = (frames[-1] - frames[0])/(flow_num_knts+1)
+for k in range(flow_num_knts):
+    flow_knts.append(flow_knt_space*(k+1) + frames[0])
+
+# assign zero weight to nan values (https://gemfury.com/alkaline-ml/python:scipy/-/content/interpolate/fitpack2.py)
+wu = np.isnan(u_grid_thru_time)
+u_grid_thru_time[wu] = 0.
+
+# NEW: assign zero weight to all 0 values (the converted nans and other zeros)
+wu = np.array([i==0 for i in u_grid_thru_time])
+
+# Same smoothing method as for zooplankton tracks
+# https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.UnivariateSpline.html
+u_flow_spline = LSQUnivariateSpline(frames, u_grid_thru_time, flow_knts, w=~wu, k=1)       # calculate spline for observed flow
+u_flow_output = u_flow_spline.__call__(frames)
 
 
 for a in range(4):

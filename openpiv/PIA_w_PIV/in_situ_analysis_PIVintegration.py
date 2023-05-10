@@ -219,8 +219,8 @@ class Flowfield_PIV_Full():
                 v_grid_thru_time = self.v_flow_raw[:,i,j]
                 
                 flow_knts = []
-                flow_knt_smooth = 6
-                #flow_knt_smooth = 10
+                #flow_knt_smooth = 6
+                flow_knt_smooth = 15
                 flow_num_knts = int((frames[-1] - frames[0])/flow_knt_smooth)
                 flow_knt_space = (frames[-1] - frames[0])/(flow_num_knts+1)
                 for k in range(flow_num_knts):

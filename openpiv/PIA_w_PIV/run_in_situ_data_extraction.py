@@ -3,19 +3,22 @@
 
 # ACW 20 Sept 2022
 
+# To execute: 
+    # cd Wyeth2/GIT_repos_insitu/openpiv-python/openpiv/PIA_w_PIV
+    # python3.8
+    # copy and paste code into terminal 
 
 # =========================================================================================
 
 # Import methods and packages 
 
-import in_situ_data_extraction2 as ide
+#import in_situ_data_extraction2 as ide
 from importlib import reload
 import matplotlib.pyplot as plt
 import numpy as np
 import statistics
-
-
-reload(ide)
+import datetime
+import os
 
 # =========================================================================================
 
@@ -31,11 +34,10 @@ reload(ide)
 
 # Define parameters:
 
-#analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2022-09-20 16:26:10.449537'
-#analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2023-02-10 12:23:49.046774'
-#analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2023-03-09 10:08:09.300375'
-#analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2023-03-14 09:37:56.373538'
-#analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output_tests/2023-03-15 12:06:08.952701'
+# SELECT SWIMMING ANALYSIS
+import in_situ_data_extraction_copepod2 as ide
+#import in_situ_data_extraction_amphipod as ide
+
 analysis_folder = '/home/dg/Wyeth2/IN_SITU_MOTION/analysis_output/2023-03-24 15:58:07.367266'
 
 analysis_lookup_file = 'processed_lookup_table.csv'
@@ -50,6 +52,11 @@ time_threshold_late = 19
 depth_threshold = 50
 
 save_file = True
+#save_file = False
+
+# Hidden Markov Model parameters
+HMM_start_points = 1000
+HMM_niter = 1000
 
 # ---------------------------------------------------------------------------------------------------------------------------------------
 
@@ -91,23 +98,50 @@ else:
 # ---------------------------------------------------------------------------------------------------------------------------------------
 
 # Create the Analysis object 
+#reload(ide)
 
-test = ide.Analysis(rootdir=analysis_folder, lookup_file= analysis_lookup_file, group_method = anlaysis_method,
-    oxygen_thresh=oxygen_threshold, time_thresh1=time_threshold_early, time_thresh2=time_threshold_late, depth_thresh=depth_threshold, classifier=classification, 
+final_extraction = ide.Analysis(rootdir=analysis_folder, lookup_file= analysis_lookup_file, group_method = anlaysis_method,
+    oxygen_thresh=oxygen_threshold, time_thresh1=time_threshold_early, time_thresh2=time_threshold_late, depth_thresh=depth_threshold, classifier=classification,
+    HMM_start=HMM_start_points, HMM_n=HMM_niter, 
     save=save_file, output_file=output_file_name, metadata_file=metadata_file_name, markov_file=markov_file_name)
+    
+# AFTER IT FINISHES --- should automate this 
+# Pickle entire analysis object after running it
+pickle_name = str('Final_Extraction_Analysis_meth'+ anlaysis_method +'_' + classification +'_starts' + str(HMM_start_points) + '_niter' + str(HMM_niter) + '.pickle')
+pickle_path = os.path.join(analysis_folder, pickle_name)
+pickle_file = open(pickle_path, 'wb')
+pickle.dump(final_extraction, pickle_file)
+pickle_file.close()
+print("Pickeled ", pickle_file)
 
 
 # =========================================================================================
-# Experiment with charts in python
-
-fig, (ax1, ax2) = plt.subplots(1, 2)
-fig.suptitle('Copepods')
-ax1.bar(test.df['Group'],test.df['Avg Cruise Speed'])
-ax1.set(ylabel="Avg Cruise Speed (mm/s)")
-ax2.bar(test.df['Group'],test.df['Avg Jumps per Frame'])
-ax2.set(ylabel="Avg Jumps per Frame")
-
 # =========================================================================================
+# =========================================================================================
+# =========================================================================================
+# Output! 
+
+final_extraction.video_dic['1537773747'].zoop_paths[7].speed_raw
+
+test.all_group_data[0].HMM_mean_all
+test.all_group_data[0].HMM_mean_size_0_1
+test.all_group_data[0].HMM_mean_size_1_2
+test.all_group_data[0].HMM_mean_size_2_3
+test.all_group_data[0].HMM_mean_size_3_4
+test.all_group_data[0].HMM_mean_size_4_10
+
+test.all_group_data[1].HMM_mean_all
+test.all_group_data[1].HMM_mean_size_0_1
+test.all_group_data[1].HMM_mean_size_1_2
+test.all_group_data[1].HMM_mean_size_2_3
+test.all_group_data[1].HMM_mean_size_3_4
+test.all_group_data[1].HMM_mean_size_4_10
+
+# new amphipod analysis 
+test.all_group_data[0].group_vids[2].paths_of_interest[0].path_slow_speeds
+test.all_group_data[0].group_vids[2].paths_of_interest[0].path_fast_speeds
+test.all_group_data[0].group_vids[2].paths_of_interest[0].speed_states
+test.all_group_data[0].group_vids[2].paths_of_interest[0].trans_matrix
 
 # all data
 test.all_group_data
@@ -146,7 +180,111 @@ test.all_group_data[0].group_vids[1].paths_of_interest[0].path_avg_cruise_speed
 len(test.sorted_videos[test.sorted_videos[0] == 'hypoxic'])     # 80
 len(test.sorted_videos[test.sorted_videos[0] == 'normoxic'])    # 107 
 
-# GROUP transition states
+
+
+
+# -------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------
+
+# Experiemnts 
+
+
+# Marvok stats test ------------------------------------------------
+# HMM Learn model 
+        # I think getting to work
+from hmmlearn.hmm import GaussianHMM
+from matplotlib import cm, pyplot as plt
+from sklearn.utils import check_random_state
+
+# a) combine three swimming paths to test multiple sequences 
+X1 = test.all_group_data[0].group_vids[2].paths_of_interest[0].all_speeds
+X2 = test.all_group_data[0].group_vids[2].paths_of_interest[1].all_speeds
+X3 = test.all_group_data[0].group_vids[2].paths_of_interest[6].all_speeds
+X1 = [[i] for i in X1]
+X2 = [[i] for i in X2]
+X3 = [[i] for i in X3]
+
+X = np.concatenate([X1, X2, X3])
+L = [len(X1), len(X2), len(X3)]
+F = np.array(range(len(X)))
+
+# b)  Using AIC values to determine best model -- number of componments
+        # https://hmmlearn.readthedocs.io/en/latest/auto_examples/plot_gaussian_model_selection.html#sphx-glr-auto-examples-plot-gaussian-model-selection-py 
+
+rs = check_random_state(546)
+
+start_point = 10          # number of starting points
+n_iter = 10
+
+aic = []
+bic = []
+lls = []
+models = []
+
+ns = [2, 3, 4, 5, 6]
+
+for n in ns:
+    best_ll = None
+    best_model = None
+    for i in range(start_point):                                                 
+        h = GaussianHMM(n, n_iter=n_iter, tol=1e-4, random_state=rs)
+        h.fit(X,L)
+        score = h.score(X)
+        #if not best_ll or best_ll < best_ll:                # typo 
+        if not best_ll or best_ll < score:                  # saves LARGER value
+            best_ll = score
+            best_model = h
+    aic.append(best_model.aic(X))
+    bic.append(best_model.bic(X))
+    lls.append(best_model.score(X))
+    models.append(best_model)
+
+fig, ax = plt.subplots()
+ln1 = ax.plot(ns, aic, label="AIC", color="blue", marker="o")
+ln2 = ax.plot(ns, bic, label="BIC", color="green", marker="o")
+ax2 = ax.twinx()
+ln3 = ax2.plot(ns, lls, label="LL", color="orange", marker="o")
+ax.legend(handles=ax.lines + ax2.lines)
+ax.set_title("Using AIC/BIC for Model Selection")
+ax.set_ylabel("Criterion Value (lower is better)")
+ax2.set_ylabel("LL (higher is better)")
+ax.set_xlabel("Number of HMM Components")
+#fig.tight_layout()
+
+# c) determine means, variance, and prob matrix: 
+    # https://hmmlearn.readthedocs.io/en/0.2.0/auto_examples/plot_hmm_stock_analysis.html 
+
+rs = check_random_state(546)            # this is usually for debugging purposes -- dont need to reset it before running model
+
+model = GaussianHMM(n_components=3, covariance_type="diag", n_iter=1000, random_state=rs).fit(X, L)      # can read in saved model from previous step 
+
+# Predict the optimal sequence of internal hidden state
+hidden_states = model.predict(X, L)
+
+print("Transition matrix")
+print(model.transmat_)
+
+# this looks promising! 
+print("Means and vars of each hidden state")
+for i in range(model.n_components):
+    print("{0}th hidden state".format(i))
+    print("mean = ", model.means_[i])
+    print("var = ", np.diag(model.covars_[i]))
+    print()
+
+# dont know what this is supposed to show me, but plotting data
+fig, axs = plt.subplots(model.n_components, sharex=True, sharey=True)
+colours = cm.rainbow(np.linspace(0, 1, model.n_components))
+for i, (ax, colour) in enumerate(zip(axs, colours)):
+    # Use fancy indexing to plot data in each state.
+    mask = hidden_states == i
+    #ax.plot_date(dates[mask], close_v[mask], ".-", c=colour)
+    ax.plot_date(F[mask], X[mask], ".-", c=colour)
+    ax.set_title("{0}th hidden state".format(i))
+
+
+# GROUP transition states ----------------------------------
 pd.set_option('display.max_rows', None)
 
 paths = []
@@ -184,8 +322,6 @@ for v in self.group_vids:
         elif p.path_avg_length > 4 and p.path_avg_length <=10:
             self.group_speed_states_10.append(p.speed_states)
 
-
-
 df_total = pd.DataFrame()
 for p in self.group_speed_states:
     df = pd.DataFrame(p)
@@ -196,46 +332,7 @@ self.trans_matrix = df_total.groupby([0, 'shift']).count().unstack().fillna(0)
 self.trans_matrix_prob = self.trans_matrix.div(self.trans_matrix.sum(axis=1), axis=0).values
 
 
-
-# Transition states
-path = ['C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'D', 'D', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C']
-
-df = pd.DataFrame(path)
-
-# create a new column with data shifted one space
-df['shift'] = df[0].shift(-1)
-# add a count column (for group by function)
-df['count'] = 1
-
-# create dummy rows for each transition so the matrix is complete even if there isn't every transition in each path
-df.loc[len(df.index)] = ['C', 'C', 0] 
-df.loc[len(df.index)] = ['C', 'D', 0] 
-df.loc[len(df.index)] = ['C', 'J', 0] 
-df.loc[len(df.index)] = ['J', 'C', 0] 
-df.loc[len(df.index)] = ['J', 'D', 0] 
-df.loc[len(df.index)] = ['J', 'J', 0] 
-df.loc[len(df.index)] = ['D', 'C', 0] 
-df.loc[len(df.index)] = ['D', 'D', 0] 
-df.loc[len(df.index)] = ['D', 'J', 0] 
-
-# groupby and then unstack, fill the zeros
-trans_mat = df.groupby([0, 'shift']).count().unstack().fillna(0)
-
-# remove each of the dummy counts
-trans_mat = trans_mat - 1 
-
-# normalise by occurences and save values to get transition matrix
-trans_mat_fin = trans_mat.div(trans_mat.sum(axis=1), axis=0).values
-
-trans_mat_fin[np.isnan(trans_mat_fin)] = 0
-
-
-
-
-
-
-
-# Histogram of all speeds
+# Histogram of all speeds ----------------------------------
 speeds = []
 for i in test.all_group_data[0].group_vids:
     #print(i)
@@ -248,13 +345,7 @@ statistics.mean(flat_list)
 
 plt.hist(flat_list, bins=100)
 
-
-
-
-
-
-
-# Other tests 
+# Classification Method ----------------------------------
 test.video_dic[test.sorted_videos.iloc[1,1]].zoop_paths[6].classification
 test.video_dic['1535753947'].zoop_paths[6].classification
 
